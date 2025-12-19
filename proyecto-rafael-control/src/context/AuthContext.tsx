@@ -1,16 +1,16 @@
-// src/context/AuthContext.tsx
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
-import { createClient, type Session, type User } from '@supabase/supabase-js'; // Importa createClient si lo necesitas, o ajusta según tu supabaseClient.ts
+import { type Session, type User } from '@supabase/supabase-js';
 import { supabase } from '../supabaseClient';
 
-// Tipo de dato para tu usuario extendido
 type UserProfile = {
   id: string;
   email: string;
   nombre_completo: string;
   rol_id: string;
-  rol_nombre?: string; // Lo uniremos con la tabla roles
+  rol_nombre?: string;
   avatar_url?: string;
+  departamento_id?: string | null;
+  activo: boolean;
 };
 
 type AuthContextType = {
@@ -30,7 +30,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // 1. Obtener sesión inicial
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
@@ -38,7 +37,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       else setLoading(false);
     });
 
-    // 2. Escuchar cambios (login/logout)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
@@ -55,26 +53,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const fetchProfile = async (userId: string) => {
     try {
-      // Consultamos la tabla 'usuarios' y hacemos join con 'roles'
+      // CAMBIO IMPORTANTE: .maybeSingle() no lanza error si no encuentra datos
+      // Esto evita el pantallazo rojo si el perfil tarda un poco en crearse
       const { data, error } = await supabase
         .from('usuarios')
-        .select(`
-          *,
-          roles ( nombre )
-        `)
+        .select(`*, roles ( nombre )`)
         .eq('id', userId)
-        .single();
+        .maybeSingle();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error al cargar perfil:', error.message);
+      }
 
       if (data) {
         setProfile({
           ...data,
-          rol_nombre: data.roles?.nombre // Mapeamos el nombre del rol
+          rol_nombre: data.roles?.nombre
         });
+      } else {
+        // Si entra aquí, el usuario está logueado en Auth pero no tiene fila en 'usuarios'
+        // Esto puede pasar justo en el instante del registro. No es crítico.
+        setProfile(null);
       }
     } catch (error) {
-      console.error('Error cargando perfil:', error);
+      console.error('Excepción en AuthContext:', error);
     } finally {
       setLoading(false);
     }

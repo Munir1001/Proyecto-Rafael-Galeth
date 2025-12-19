@@ -1,49 +1,119 @@
-// src/App.tsx
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import React from 'react';
-import { AuthProvider, useAuth } from './context/AuthContext' // Importamos el contexto
-import { Spinner } from 'flowbite-react'
+import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import { Spinner } from 'flowbite-react';
 
-// Layout y Páginas
-import Layout from './components/Layout'
-import Dashboard from './pages/Dashboard'
-import Login from './pages/Login'
-import Register from './pages/Register'
+// --- LAYOUTS Y PÁGINAS ---
+import Layout from './components/Layout';
+import Login from './pages/Login';
+import Register from './pages/Register';
+import Dashboard from "./pages/Dashboard";
+import Perfil from './pages/Perfil';
 
-// Placeholders
-const Proyectos = () => <h1 className="text-2xl font-bold">Mis Proyectos 📁</h1>
-const Reportes = () => <h1 className="text-2xl font-bold">Reportes 📈</h1>
-const Perfil = () => <h1 className="text-2xl font-bold">Mi Perfil 👤</h1>
+// --- PÁGINAS DE ADMIN ---
+import Usuarios from "./pages/Admin/Usuarios";
+import Departamentos from "./pages/Admin/Departamentos";
+import Roles from "./pages/Admin/Roles";
+import Estadostareas from "./pages/Admin/EstadosTarea";
+import Prioridades from "./pages/Admin/Prioridades";
+import Tarea from "./pages/Tareas";
 
-// Componente para proteger rutas privadas
-const PrivateRoute = ({ children }: { children: React.ReactNode }) => {
-  const { session, loading } = useAuth();
+// --- PÁGINAS DE MANAGER ---
+import DepartamentosM from "./pages/Manager/DepartamentosM";
 
-  if (loading) return <div className="h-screen flex items-center justify-center"><Spinner size="xl" /></div>;
-  
-  if (!session) return <Navigate to="/login" />;
+// --- PÁGINAS DE ESTADO (Nuevas y Profesionales) ---
+import Unauthorized from './pages/Unauthorized';
+import NotFound from './pages/NotFound';
+import InactiveAccount from './pages/InactiveAccount'; // <--- IMPORTANTE
 
-  return <>{children}</>; // Envuelve children en fragmento por si acaso
+// --- CONSTANTES ---
+const ROLES = {
+  ADMIN: 'Admin',
+  MANAGER: 'Manager',
+  USUARIO: 'Usuario',
 };
 
+// Placeholders (Mover a sus archivos después)
+const Reportes = () => <h1 className="text-2xl font-bold p-8">Reportes y Métricas</h1>;
+
+// --- COMPONENTE DE PROTECCIÓN DE RUTAS ---
+interface ProtectedRouteProps {
+  allowedRoles?: string[];
+}
+
+const ProtectedRoute = ({ allowedRoles }: ProtectedRouteProps) => {
+  const { session, profile, loading } = useAuth();
+
+  // 1. Cargando
+  if (loading) {
+    return (
+      <div className="h-screen w-full flex items-center justify-center bg-gray-50 dark:bg-slate-900">
+        <Spinner size="xl" aria-label="Cargando sistema..." />
+      </div>
+    );
+  }
+
+  // 2. No hay sesión -> Login
+  if (!session) {
+    return <Navigate to="/login" replace />;
+  }
+
+  // 3. 🔒 VALIDACIÓN DE CUENTA ACTIVA
+  // Si el perfil cargó y la columna 'activo' es false, bloqueamos todo.
+  if (profile && profile.activo === false) {
+      return <InactiveAccount />;
+  }
+
+  // 4. Validación de Roles
+  if (allowedRoles && profile) {
+    if (!allowedRoles.includes(profile.rol_nombre || '')) {
+        return <Unauthorized />;
+    }
+  }
+
+  // 5. Todo OK -> Mostrar contenido
+  return <Outlet />;
+};
+
+// --- RUTAS ---
 function AppRoutes() {
   return (
     <Routes>
-      {/* Rutas Públicas */}
+      {/* PÚBLICAS */}
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
+      
+      {/* PROTEGIDAS */}
+      <Route element={<Layout />}>
+        
+        {/* NIVEL 1: Todos (Activos) */}
+        <Route element={<ProtectedRoute allowedRoles={[ROLES.ADMIN, ROLES.MANAGER, ROLES.USUARIO]} />}>
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/tareas" element={<Tarea />} />
+          <Route path="/perfil" element={<Perfil />} />
+          <Route path="/historial" element={<div className="p-8"><h1 className='text-2xl font-bold'>Historial</h1></div>} />
+        </Route>
 
-      {/* Rutas Privadas (Protegidas) */}
-      <Route path="/" element={
-        <PrivateRoute>
-          <Layout />
-        </PrivateRoute>
-      }>
-        <Route index element={<Dashboard />} />
-        <Route path="proyectos" element={<Proyectos />} />
-        <Route path="reportes" element={<Reportes />} />
-        <Route path="perfil" element={<Perfil />} />
+        {/* NIVEL 2: Managers */}
+        <Route element={<ProtectedRoute allowedRoles={[ROLES.MANAGER]} />}>
+          <Route path="/departamentos-manager" element={<DepartamentosM />} />
+        </Route>
+
+        {/* NIVEL 3: Solo Admins */}
+        <Route element={<ProtectedRoute allowedRoles={[ROLES.ADMIN]} />}>
+          <Route path="/usuarios" element={<Usuarios />} />
+          <Route path="/roles" element={<Roles />} />
+          <Route path="/estados-tarea" element={<Estadostareas />} />
+          <Route path="/prioridades" element={<Prioridades />} />
+          <Route path="/departamentos" element={<Departamentos/>} />
+          <Route path="/reportes" element={<Reportes />} />
+        </Route>
+
+        {/* Ruta auxiliar para redirecciones manuales */}
+        <Route path="/unauthorized" element={<Unauthorized />} />
       </Route>
+
+      {/* 404 */}
+      <Route path="*" element={<NotFound />} />
     </Routes>
   );
 }

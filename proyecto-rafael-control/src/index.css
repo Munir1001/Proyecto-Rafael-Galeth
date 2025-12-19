@@ -11,3 +11,13 @@
   background-color: #111827;
   color: #f9fafb;
 }
+
+/* Ocultar scrollbar pero permitir scroll */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none; /* IE y Edge */
+  scrollbar-width: none; /* Firefox */
+}
