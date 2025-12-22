@@ -24,7 +24,7 @@ interface Departamento {
     nombre: string;
     descripcion: string | null;
     manager_id: string | null;
-    manager?: { nombre_completo: string };
+    manager?: { nombre_completo: string; avatar_url?: string | null };
 }
 
 interface Usuario {
@@ -90,7 +90,7 @@ export default function Departamentos() {
         setLoading(true);
         const { data: depts, error: deptError } = await supabase
             .from("departamentos")
-            .select(`*, manager:usuarios!fk_departamento_manager (id, nombre_completo)`)
+            .select(`*, manager:usuarios!fk_departamento_manager (id, nombre_completo, avatar_url)`)
             .order("created_at", { ascending: false });
 
         if (deptError) {
@@ -360,10 +360,18 @@ export default function Departamentos() {
                                         <div className="mt-auto pt-4 border-t border-slate-100 dark:border-slate-800">
                                             {d.manager ? (
                                                 <div className="flex items-center gap-3">
-                                                    {/* Avatar con iniciales */}
-                                                    <div className="h-8 w-8 rounded-full bg-linear-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white text-xs font-bold shadow-sm">
-                                                        {d.manager.nombre_completo.charAt(0)}
-                                                    </div>
+                                                    {/* Avatar Manager: Imagen o Iniciales */}
+                                                    {d.manager.avatar_url ? (
+                                                        <img
+                                                            src={d.manager.avatar_url}
+                                                            alt={d.manager.nombre_completo}
+                                                            className="h-8 w-8 rounded-full object-cover shadow-sm bg-slate-200 ring-1 ring-white dark:ring-slate-700"
+                                                        />
+                                                    ) : (
+                                                        <div className="h-8 w-8 rounded-full bg-linear-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white text-xs font-bold shadow-sm ring-1 ring-white dark:ring-slate-700">
+                                                            {d.manager.nombre_completo.charAt(0).toUpperCase()}
+                                                        </div>
+                                                    )}
                                                     <div className="flex flex-col">
                                                         <span className="text-xs font-medium text-slate-500 uppercase tracking-wide">Manager</span>
                                                         <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">

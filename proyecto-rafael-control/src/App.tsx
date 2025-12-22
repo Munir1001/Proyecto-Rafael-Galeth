@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Spinner } from 'flowbite-react';
+import { ThemeProvider } from "next-themes";
 
 // --- LAYOUTS Y PÁGINAS ---
 import Layout from './components/Layout';
@@ -24,6 +25,7 @@ import DepartamentosM from "./pages/Manager/DepartamentosM";
 import Unauthorized from './pages/Unauthorized';
 import NotFound from './pages/NotFound';
 import InactiveAccount from './pages/InactiveAccount'; // <--- IMPORTANTE
+
 
 // --- CONSTANTES ---
 const ROLES = {
@@ -120,10 +122,12 @@ function AppRoutes() {
 
 export default function App() {
   return (
+    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
     <AuthProvider>
       <BrowserRouter>
         <AppRoutes />
       </BrowserRouter>
     </AuthProvider>
+    </ThemeProvider>
   )
 }

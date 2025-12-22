@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom'
-import { useAuth } from '../context/AuthContext' // IMPORTANTE: Importar el hook de Auth
+import { useAuth } from '../context/AuthContext'
+import ThemeToggle from "../components/ThemeToggle";
 import {
     LayoutDashboard,
     Briefcase,
@@ -187,10 +188,21 @@ export default function Layout() {
                     <div className={`flex items-center gap-3 transition-all duration-300 ${!isSidebarOpen ? 'justify-center' : ''}`}>
 
                         <Link to="/perfil" className="relative shrink-0 group cursor-pointer">
-                            <div className="h-10 w-10 rounded-full bg-linear-to-tr from-indigo-400 to-blue-800 flex items-center justify-center text-white font-bold text-sm ring-2 ring-white dark:ring-slate-800 shadow-md">
-                                {/* Iniciales dinámicas */}
-                                {profile?.nombre_completo ? profile.nombre_completo.substring(0, 2).toUpperCase() : 'US'}
-                            </div>
+                            {profile?.avatar_url ? (
+                                // 1. SI TIENE FOTO: Mostramos la imagen
+                                <img
+                                    src={profile.avatar_url}
+                                    alt="Avatar"
+                                    className="h-10 w-10 rounded-full object-cover ring-2 ring-white dark:ring-slate-800 shadow-md"
+                                />
+                            ) : (
+                                // 2. NO TIENE FOTO: Mostramos tus iniciales
+                                <div className="h-10 w-10 rounded-full bg-linear-to-tr from-indigo-400 to-blue-800 flex items-center justify-center text-white font-bold text-sm ring-2 ring-white dark:ring-slate-800 shadow-md">
+                                    {profile?.nombre_completo
+                                        ? profile.nombre_completo.substring(0, 2).toUpperCase()
+                                        : 'US'}
+                                </div>
+                            )}
                             <span className="absolute bottom-0 right-0 h-3 w-3 bg-emerald-500 border-2 border-white dark:border-slate-800 rounded-full"></span>
                         </Link>
 
@@ -301,6 +313,8 @@ export default function Layout() {
                                 className="bg-transparent border-none outline-none text-sm ml-2 w-32 focus:w-48 transition-all"
                             />
                         </div>
+                        {/* Toggle Light / Dark */}
+                        <ThemeToggle />
                         <button className="p-2.5 text-slate-500 hover:bg-gray-100 rounded-full relative">
                             <Bell size={20} />
                             <span className="absolute top-2 right-2.5 w-2 h-2 bg-red-500 rounded-full border border-white"></span>

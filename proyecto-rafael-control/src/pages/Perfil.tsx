@@ -114,14 +114,21 @@ export default function Perfil() {
             }
 
             const file = event.target.files[0];
+            // Validar tamaño (ejemplo max 2MB)
+            if (file.size > 2 * 1024 * 1024) {
+                throw new Error("La imagen es muy pesada (Máx 2MB).");
+            }
+
             const fileExt = file.name.split('.').pop();
-            const fileName = `${profile?.id}-${Math.random()}.${fileExt}`;
+            // USAR SIEMPRE EL ID DEL USUARIO como nombre de archivo
+            // Esto sobrescribe la foto anterior y ahorra espacio.
+            const fileName = `${profile?.id}.${fileExt}`;
             const filePath = `${fileName}`;
 
-            // 1. Subir a Storage
+            // 1. Subir a Storage (upsert: true para sobrescribir)
             const { error: uploadError } = await supabase.storage
                 .from('avatars')
-                .upload(filePath, file);
+                .upload(filePath, file, { upsert: true });
 
             if (uploadError) throw uploadError;
 
@@ -130,7 +137,12 @@ export default function Perfil() {
                 .from('avatars')
                 .getPublicUrl(filePath);
 
-            // 3. Actualizar base de datos
+            // TRUCO DE CACHÉ:
+            // Agregamos un timestamp (?t=...) al final de la URL.
+            // Esto no cambia la BD, pero fuerza a React a recargar la imagen nueva.
+            const publicUrlWithCacheBuster = `${publicUrl}?t=${new Date().getTime()}`;
+
+            // 3. Actualizar base de datos (guardamos la URL limpia sin el timestamp)
             const { error: updateError } = await supabase
                 .from('usuarios')
                 .update({ avatar_url: publicUrl })
@@ -138,10 +150,13 @@ export default function Perfil() {
 
             if (updateError) throw updateError;
 
-            setProfile(prev => prev ? { ...prev, avatar_url: publicUrl } : null);
+            // 4. Actualizar estado local para ver el cambio instantáneo
+            setProfile(prev => prev ? { ...prev, avatar_url: publicUrlWithCacheBuster } : null);
+
             showToast("Foto de perfil actualizada", "success");
 
         } catch (error: any) {
+            console.error(error);
             showToast(error.message || "Error al subir imagen", "error");
         } finally {
             setUploading(false);
