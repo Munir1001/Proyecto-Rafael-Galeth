@@ -1,21 +1,37 @@
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+@tailwind utilities;
+
+
+body {
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+}
+
+#root {
+    height: 100%;
+}
 
 /* Tema claro */
 html {
   color-scheme: light;
 }
 
+/* Esto pinta los scrolls nativos de oscuro */
 html.dark {
   color-scheme: dark;
 }
 
-/* Scrollbar */
-.scrollbar-hide::-webkit-scrollbar {
-  display: none;
-}
-.scrollbar-hide {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
+@layer utilities {
+  .scrollbar-hide::-webkit-scrollbar {
+      display: none;
+  }
+  
+  .scrollbar-hide {
+      -ms-overflow-style: none;  /* IE and Edge */
+      scrollbar-width: none;  /* Firefox */
+  }
 }
 
 ::view-transition-group(root) {
@@ -56,4 +72,71 @@ html.dark::view-transition-new(root) {
   to {
     clip-path: polygon(171% 50%, 50% 171%, -50% 71%, 50% -71%);
   }
+}
+
+.glass-column {
+  background: rgba(248, 250, 252, 0.7); /* Slate-50 con transparencia */
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.05);
+}
+
+.bg-dot-pattern {
+  background-image: radial-gradient(#94a3b8 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* 1. Ocultar los créditos de "Powered by PQINA" */
+.filepond--credits {
+  display: none !important;
+}
+
+/* 2. Estilo del contenedor principal */
+.filepond--root {
+  font-family: inherit; /* Usar la fuente de tu app */
+  margin-bottom: 0;
+}
+
+/* 3. El panel de fondo (la zona gris por defecto) */
+.filepond--panel-root {
+  background-color: transparent !important; /* Fondo transparente */
+  border: 3px dashed #e2e8f0; /* slate-200 */
+  border-radius: 1rem; /* rounded-2xl */
+  transition: all 0.3s ease;
+}
+
+/* 4. Efecto Hover sobre el panel */
+.filepond--root:hover .filepond--panel-root {
+  background-color: #f8fafc !important; /* slate-50 */
+  border-color: #a5b4fc; /* indigo-300 */
+}
+
+/* 5. Ajustar altura para que se vea grande como tu diseño */
+.filepond--wrapper {
+  min-height: 200px;
+}
+
+@keyframes moving {
+    0% {
+        width: 0%;
+        transform: translateX(0);
+    }
+    50% {
+        width: 100%;
+        transform: translateX(0);
+    }
+    100% {
+        width: 0%;
+        transform: translateX(100%);
+    }
+}
+
+.loader-line {
+    fill: hsl(228, 97%, 42%);
+    animation: moving 1s ease-in-out infinite;
+}
+
+.dark .loader-line {
+    fill: hsl(228, 97%, 65%);
 }

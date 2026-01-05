@@ -6,19 +6,18 @@ export default {
   content: [
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
-    flowbite.content(), // <--- Necesario para que Flowbite funcione
+    flowbite.content(), 
   ],
-  darkMode: 'class',
+  // CAMBIO IMPORTANTE: En Tailwind v4 usa 'selector' en lugar de 'class'
+  darkMode: 'selector', 
   theme: {
     extend: {
       colors: {
-        // Tus colores personalizados "Monday" / DB
         primary: '#646cff',
         secondary: '#1e293b',
         background: '#f3f4f6',
         surface: '#ffffff',
         
-        // Colores de tu Base de Datos
         prio: {
           baja: '#10B981',
           media: '#F59E0B',
@@ -41,6 +40,6 @@ export default {
     },
   },
   plugins: [
-    flowbite.plugin(), // <--- Plugin de Flowbite
+    flowbite.plugin(),
   ],
 }

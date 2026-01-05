@@ -3,6 +3,7 @@ import { type Session, type User } from '@supabase/supabase-js';
 import { supabase } from '../supabaseClient';
 
 type UserProfile = {
+  [x: string]: any;
   id: string;
   email: string;
   nombre_completo: string;

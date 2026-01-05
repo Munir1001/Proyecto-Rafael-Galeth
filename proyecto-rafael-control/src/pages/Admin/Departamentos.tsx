@@ -228,7 +228,9 @@ export default function Departamentos() {
                     <div className={`flex items-center gap-3 px-6 py-4 rounded-lg shadow-2xl border-l-4 backdrop-blur-md ${notification.type === 'error' ? 'bg-orange-500/90 text-white border-orange-700' : notification.type === 'warning' ? 'bg-yellow-400/90 text-slate-900 border-yellow-600' : 'bg-green-500/90 text-white border-green-700'}`}>
                         {notification.type === 'error' || notification.type === 'warning' ? <AlertTriangle className="h-6 w-6" /> : <CheckCircle className="h-6 w-6" />}
                         <div>
-                            <h4 className="font-bold text-sm uppercase tracking-wider">{notification.type}</h4>
+                            <h4 className="font-bold text-sm uppercase tracking-wider">
+                                {notification.type === 'error' ? 'Error' : notification.type === 'warning' ? 'Aviso' : 'Éxito'}
+                            </h4>
                             <p className="text-sm font-medium opacity-95">{notification.message}</p>
                         </div>
                     </div>

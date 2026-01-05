@@ -17,9 +17,14 @@ import {
     X,
     AlertTriangle,
     Filter, // IMPORTANTE: Agregamos el icono de filtro
-    ChevronDown
+    ChevronDown,
+    Trash2
 } from 'lucide-react';
 import { Spinner, Button, TextInput, Select, Label } from 'flowbite-react';
+import Swal from 'sweetalert2';
+import withReactContent from 'sweetalert2-react-content';
+
+const MySwal = withReactContent(Swal);
 
 // --- INTERFACES ---
 interface Rol {
@@ -71,6 +76,70 @@ export default function Usuarios() {
     const [notification, setNotification] = useState<Notification>({ show: false, message: "", type: 'success' });
 
     const managerRole = roles.find(r => r.nombre.toLowerCase().includes('manager'));
+
+    const handleDeleteUser = async (user: Usuario) => {
+        MySwal.fire({
+            title: <p className="text-2xl font-bold text-slate-800 dark:text-white">¿Eliminar usuario?</p>,
+            html: (
+                <div className="text-left space-y-2 text-slate-600 dark:text-slate-400">
+                    <p>Estás a punto de eliminar a <b>{user.nombre_completo}</b>.</p>
+                    <p className="text-red-500 font-semibold">⚠️ Esta acción eliminará permanentemente:</p>
+                    <ul className="list-disc ml-6 text-sm">
+                        <li>Tareas asignadas y creadas</li>
+                        <li>Comentarios y adjuntos</li>
+                        <li>Registros de rendimiento y salarios</li>
+                        <li>Notificaciones</li>
+                    </ul>
+                    <p className="mt-4 italic">El usuario deberá ser invitado y registrarse nuevamente para acceder.</p>
+                </div>
+            ),
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#ef4444',
+            cancelButtonColor: '#64748b',
+            confirmButtonText: 'Sí, eliminar todo',
+            cancelButtonText: 'Cancelar',
+            background: document.documentElement.classList.contains('dark') ? '#1e293b' : '#ffffff',
+            customClass: {
+                popup: 'rounded-3xl border border-slate-200 dark:border-slate-700 shadow-2xl',
+            }
+        }).then(async (result) => {
+            if (result.isConfirmed) {
+                try {
+                    setLoading(true);
+
+                    // Eliminación en la tabla pública
+                    const { error } = await supabase
+                        .from('usuarios')
+                        .delete()
+                        .eq('id', user.id);
+
+                    if (error) throw error;
+
+                    setUsuarios(prev => prev.filter(u => u.id !== user.id));
+
+                    MySwal.fire({
+                        title: '¡Eliminado!',
+                        text: 'El registro ha sido borrado. El usuario debe registrarse nuevamente para volver a ingresar.',
+                        icon: 'success',
+                        timer: 4000,
+                        background: document.documentElement.classList.contains('dark') ? '#1e293b' : '#ffffff',
+                    });
+
+                } catch (error: any) {
+                    console.error('Error:', error);
+                    MySwal.fire({
+                        title: 'Error',
+                        text: 'No se pudo eliminar al usuario. Asegúrate de que no sea manager activo de un departamento.',
+                        icon: 'error',
+                        background: document.documentElement.classList.contains('dark') ? '#1e293b' : '#ffffff',
+                    });
+                } finally {
+                    setLoading(false);
+                }
+            }
+        });
+    };
 
     const initialFormState = {
         email: '',
@@ -230,7 +299,7 @@ export default function Usuarios() {
     }
 
     return (
-        <div className="min-h-screen bg-linear-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-900 dark:via-slate-900 dark:to-indigo-950 p-4 md:p-8 relative overflow-hidden">
+        <div className="min-h-screen bg-linear-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-900 p-6 relative overflow-hidden">
 
             <style>{`
                 @keyframes slideDown {
@@ -472,13 +541,21 @@ export default function Usuarios() {
                                             </button>
                                         </td>
                                         <td className="px-6 py-5">
-                                            <div className="flex justify-end">
+                                            <div className="flex justify-end gap-2">
                                                 <button
                                                     onClick={() => handleOpenModal(user)}
-                                                    className="p-3 text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:hover:bg-indigo-900/50 rounded-xl transition-all duration-300 hover:shadow-md transform hover:scale-110"
+                                                    className="p-3 text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:hover:bg-indigo-900/50 rounded-xl transition-all"
                                                     title="Editar"
                                                 >
                                                     <Edit2 size={18} />
+                                                </button>
+
+                                                <button
+                                                    onClick={() => handleDeleteUser(user)}
+                                                    className="p-3 text-red-600 hover:text-white bg-red-50 hover:bg-red-600 dark:bg-red-900/30 dark:hover:bg-red-700 rounded-xl transition-all"
+                                                    title="Eliminar permanentemente"
+                                                >
+                                                    <Trash2 size={18} />
                                                 </button>
                                             </div>
                                         </td>
@@ -506,12 +583,20 @@ export default function Usuarios() {
                                             <div className="text-xs text-slate-500 dark:text-slate-400">{user.email}</div>
                                         </div>
                                     </div>
-                                    <button
-                                        onClick={() => handleOpenModal(user)}
-                                        className="p-2 text-indigo-600 bg-indigo-50 rounded-lg"
-                                    >
-                                        <Edit2 size={16} />
-                                    </button>
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={() => handleOpenModal(user)}
+                                            className="p-2 text-indigo-600 bg-indigo-50 rounded-lg"
+                                        >
+                                            <Edit2 size={16} />
+                                        </button>
+                                        <button
+                                            onClick={() => handleDeleteUser(user)}
+                                            className="p-2 text-red-600 bg-red-50 rounded-lg"
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
+                                    </div>
                                 </div>
 
                                 <div className="space-y-2 text-sm">
