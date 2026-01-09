@@ -8,6 +8,7 @@ import Layout from './components/Layout';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from "./pages/Dashboard";
+import Reportes from "./pages/Reportes";
 import Perfil from './pages/Perfil';
 
 // --- PÁGINAS DE ADMIN ---
@@ -34,8 +35,7 @@ const ROLES = {
   USUARIO: 'Usuario',
 };
 
-// Placeholders (Mover a sus archivos después)
-const Reportes = () => <h1 className="text-2xl font-bold p-8">Reportes y Métricas</h1>;
+
 
 // --- COMPONENTE DE PROTECCIÓN DE RUTAS ---
 interface ProtectedRouteProps {
@@ -62,13 +62,13 @@ const ProtectedRoute = ({ allowedRoles }: ProtectedRouteProps) => {
   // 3. 🔒 VALIDACIÓN DE CUENTA ACTIVA
   // Si el perfil cargó y la columna 'activo' es false, bloqueamos todo.
   if (profile && profile.activo === false) {
-      return <InactiveAccount />;
+    return <InactiveAccount />;
   }
 
   // 4. Validación de Roles
   if (allowedRoles && profile) {
     if (!allowedRoles.includes(profile.rol_nombre || '')) {
-        return <Unauthorized />;
+      return <Unauthorized />;
     }
   }
 
@@ -83,31 +83,33 @@ function AppRoutes() {
       {/* PÚBLICAS */}
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
-      
+
       {/* PROTEGIDAS */}
       <Route element={<Layout />}>
-        
+
         {/* NIVEL 1: Todos (Activos) */}
         <Route element={<ProtectedRoute allowedRoles={[ROLES.ADMIN, ROLES.MANAGER, ROLES.USUARIO]} />}>
           <Route path="/" element={<Dashboard />} />
           <Route path="/tareas" element={<Tarea />} />
           <Route path="/perfil" element={<Perfil />} />
-          <Route path="/historial" element={<div className="p-8"><h1 className='text-2xl font-bold'>Historial</h1></div>} />
         </Route>
 
-        {/* NIVEL 2: Managers */}
         <Route element={<ProtectedRoute allowedRoles={[ROLES.MANAGER]} />}>
           <Route path="/departamentos-manager" element={<DepartamentosM />} />
         </Route>
+        
+        {/* NIVEL 2: Managers y Admins (Reportes suele ser para ambos) */}
+        <Route element={<ProtectedRoute allowedRoles={[ROLES.ADMIN, ROLES.MANAGER]} />}>
+          <Route path="/reportes" element={<Reportes />} />
+        </Route>
 
-        {/* NIVEL 3: Solo Admins */}
+        {/* NIVEL 3: Solo Admins (Configuraciones del sistema) */}
         <Route element={<ProtectedRoute allowedRoles={[ROLES.ADMIN]} />}>
           <Route path="/usuarios" element={<Usuarios />} />
           <Route path="/roles" element={<Roles />} />
           <Route path="/estados-tarea" element={<Estadostareas />} />
           <Route path="/prioridades" element={<Prioridades />} />
-          <Route path="/departamentos" element={<Departamentos/>} />
-          <Route path="/reportes" element={<Reportes />} />
+          <Route path="/departamentos" element={<Departamentos />} />
         </Route>
 
         {/* Ruta auxiliar para redirecciones manuales */}
@@ -123,11 +125,11 @@ function AppRoutes() {
 export default function App() {
   return (
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-    <AuthProvider>
-      <BrowserRouter>
-        <AppRoutes />
-      </BrowserRouter>
-    </AuthProvider>
+      <AuthProvider>
+        <BrowserRouter>
+          <AppRoutes />
+        </BrowserRouter>
+      </AuthProvider>
     </ThemeProvider>
   )
 }

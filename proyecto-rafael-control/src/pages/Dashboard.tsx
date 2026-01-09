@@ -1,9 +1,9 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Card, Spinner, Badge, Progress, Table, TableHead, TableHeadCell, TableBody, TableCell, TableRow } from 'flowbite-react';
+import { Card, Spinner, Badge, Progress, Table, TableHead, TableHeadCell, TableBody, TableRow, TableCell } from 'flowbite-react';
 import {
   Users, Briefcase, AlertTriangle, TrendingUp, CheckCircle,
   Clock, FileText, Calendar, BarChart2, Target, Award,
-  Layout, DollarSign, Activity, Zap, ArrowUp, ArrowDown,
+  Layout, Activity, Zap, ArrowUp, ArrowDown,
   MessageSquare, Paperclip,
   CheckSquare, PauseCircle, Download,
   BarChart3, PieChart as PieChartIcon
@@ -11,7 +11,7 @@ import {
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../context/AuthContext';
 import PerformanceChart from '../components/charts/PerformanceChart';
-import * as XLSX from 'xlsx';
+
 
 // ============= CONFIGURACIÓN =============
 const COLORS = {
@@ -66,6 +66,7 @@ interface Usuario {
   fecha_ingreso: string;
   roles?: { nombre: string };
   departamento?: { nombre: string };
+  salario_base?: number;
 }
 
 interface Departamento {
@@ -111,7 +112,6 @@ interface RendimientoMensual {
   tareas_completadas_tarde: number;
   tareas_vencidas: number;
   porcentaje_rendimiento: number;
-  bono_rendimiento: number;
   salario_final: number;
   usuario?: { nombre_completo: string };
 }
@@ -190,30 +190,22 @@ const StatCard = ({ title, value, icon: Icon, color, subtext, trend, onClick }: 
   </div>
 );
 
-// ============= COMPONENTE DE CARGA MEJORADO =============
-const LoadingSkeleton = () => (
-  <div className="space-y-6 animate-pulse">
-    {/* Skeleton para KPIs */}
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-      {[...Array(4)].map((_, i) => (
-        <div key={i} className="bg-white dark:bg-slate-800 rounded-xl p-4 md:p-5 shadow-sm border border-slate-200 dark:border-slate-700">
-          <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-24 mb-4" />
-          <div className="h-8 bg-slate-200 dark:bg-slate-700 rounded w-32 mb-2" />
-          <div className="h-3 bg-slate-200 dark:bg-slate-700 rounded w-20" />
-        </div>
-      ))}
-    </div>
-    {/* Skeleton para gráficos */}
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      {[...Array(2)].map((_, i) => (
-        <div key={i} className="bg-white dark:bg-slate-800 rounded-xl p-4 md:p-5 shadow-sm border border-slate-200 dark:border-slate-700">
-          <div className="h-6 bg-slate-200 dark:bg-slate-700 rounded w-48 mb-6" />
-          <div className="h-64 bg-slate-200 dark:bg-slate-700 rounded" />
-        </div>
-      ))}
+// ============= COMPONENTE DE CARGA =============
+const LoadingState = () => (
+  <div className="flex items-center justify-center min-h-[60vh]">
+    <div className="text-center space-y-6">
+      <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-slate-100 dark:bg-slate-800 border-4 border-slate-200 dark:border-slate-700">
+        <div className="w-10 h-10 rounded-full border-4 border-slate-300 dark:border-slate-600 border-t-transparent animate-spin"></div>
+      </div>
+      <div className="space-y-2">
+        <h3 className="text-xl font-semibold text-slate-700 dark:text-slate-300">Cargando Dashboard</h3>
+        <p className="text-sm text-slate-500 dark:text-slate-400">Preparando tus métricas y análisis...</p>
+      </div>
     </div>
   </div>
 );
+
+
 
 // ============= VISTA ADMIN MEJORADA =============
 const AdminView = () => {
@@ -234,16 +226,66 @@ const AdminView = () => {
   const [endDate, setEndDate] = useState('');
   const [exporting, setExporting] = useState(false);
 
-  useEffect(() => {
-    fetchData();
-  }, [timeRange, startDate, endDate]);
+  // DENTRO DE AdminView
 
-  const fetchData = async () => {
-    setLoading(true);
+  useEffect(() => {
+    //1. Carga inicial
+    fetchData();
+
+    // 2. Suscripción a cambios en tiempo real (Realtime)
+    const channel = supabase
+      .channel('admin-dashboard-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'tareas' },
+        (payload) => {
+          console.log('Cambio detectado en tareas:', payload);
+          // Forzar recarga inmediata sin mostrar loading
+          fetchData(false);
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'usuarios' },
+        (payload) => {
+          console.log('Cambio detectado en usuarios:', payload);
+          fetchData(false);
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'rendimiento_mensual' },
+        (payload) => {
+          console.log('Cambio detectado en rendimiento_mensual:', payload);
+          fetchData(false);
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'comentarios' },
+        (payload) => {
+          console.log('Cambio detectado en comentarios:', payload);
+          fetchData(false);
+        }
+      )
+      .subscribe();
+
+    // 3. Limpieza al salir
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [timeRange, startDate, endDate, profile]); // Mantenemos las dependencias de fecha y perfil
+
+  const fetchData = async (showLoading = true) => {
+    console.log('fetchData llamado con:', { timeRange, startDate, endDate, showLoading });
+
+    if (showLoading) setLoading(true);
     try {
       const dateRange = getDateRange(timeRange, startDate, endDate);
       const start = dateRange.start;
       const end = dateRange.end;
+
+      console.log('Rango de fechas calculado:', { start, end });
 
       // Obtener datos en paralelo
       const [
@@ -256,6 +298,7 @@ const AdminView = () => {
         { data: adjuntos },
         { data: rendimientos }
       ] = await Promise.all([
+        // Filtrar tareas por rango de fechas de creación
         supabase
           .from('tareas')
           .select(`
@@ -266,7 +309,8 @@ const AdminView = () => {
             creador:creador_id(nombre_completo, avatar_url),
             departamento:departamento_id(nombre)
           `)
-          .gte('created_at', start).lte('created_at', end),
+          .gte('created_at', start)
+          .lte('created_at', end),
 
         supabase
           .from('usuarios')
@@ -282,13 +326,54 @@ const AdminView = () => {
         supabase.from('prioridades').select('*'),
         supabase.from('comentarios').select('*').gte('created_at', start).lte('created_at', end),
         supabase.from('adjuntos').select('*').gte('created_at', start).lte('created_at', end),
-        supabase
-          .from('rendimiento_mensual')
-          .select('*, usuario:usuario_id(nombre_completo)')
-          .order('anio', { ascending: false })
-          .order('mes', { ascending: false })
-          .limit(12)
+        // Filtrar rendimiento mensual por rango de fechas
+        (() => {
+          let query = supabase
+            .from('rendimiento_mensual')
+            .select('*, usuario:usuario_id(nombre_completo)');
+
+          // Siempre filtrar por el rango de fechas (usar las fechas específicas o el rango por defecto)
+          const startDateObj = new Date(start);
+          const endDateObj = new Date(end);
+          const startYear = startDateObj.getFullYear();
+          const startMonth = startDateObj.getMonth() + 1;
+          const endYear = endDateObj.getFullYear();
+          const endMonth = endDateObj.getMonth() + 1;
+
+          console.log('Filtrando rendimiento mensual desde:', startYear, startMonth, 'hasta:', endYear, endMonth);
+
+          // Construir filtro para rango de años y meses
+          const filters = [];
+          for (let year = startYear; year <= endYear; year++) {
+            const monthStart = (year === startYear) ? startMonth : 1;
+            const monthEnd = (year === endYear) ? endMonth : 12;
+
+            if (year === startYear && year === endYear) {
+              filters.push(`anio.eq.${year},mes.gte.${monthStart},mes.lte.${monthEnd}`);
+            } else if (year === startYear) {
+              filters.push(`anio.eq.${year},mes.gte.${monthStart}`);
+            } else if (year === endYear) {
+              filters.push(`anio.eq.${year},mes.lte.${monthEnd}`);
+            } else {
+              filters.push(`anio.eq.${year}`);
+            }
+          }
+
+          if (filters.length > 0) {
+            query = query.or(filters.join(','));
+          }
+
+          return query.order('anio', { ascending: false }).order('mes', { ascending: false }).limit(12);
+        })()
       ]);
+
+      console.log('Datos cargados:', {
+        tareas: tareas?.length || 0,
+        comentarios: comentarios?.length || 0,
+        adjuntos: adjuntos?.length || 0,
+        rendimientos: rendimientos?.length || 0,
+        dateRange: { start, end }
+      });
 
       setData({
         tareas: tareas || [],
@@ -303,21 +388,56 @@ const AdminView = () => {
     } catch (error) {
       console.error('Error cargando datos:', error);
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   };
 
   const analytics = useMemo(() => {
+    console.log('Recalculando analytics con:', {
+      tareas: data.tareas.length,
+      rendimientos: data.rendimientos.length,
+      startDate,
+      endDate
+    });
+
     const total = data.tareas.length;
-    const completadas = data.tareas.filter(t => t.estado?.nombre === 'Completada').length;
+
+    // 1. Obtenemos la lista de tareas completadas (para usarla en los cálculos)
+    const tareasCompletadasList = data.tareas.filter(t =>
+      t.estado?.nombre === 'Completada' && t.fecha_completado
+    );
+
+    const completadas = tareasCompletadasList.length;
+
     const vencidas = data.tareas.filter(t =>
       new Date(t.fecha_fin) < new Date() && t.estado?.nombre !== 'Completada'
     ).length;
-    const completadasATiempo = data.tareas.filter(t => t.completada_a_tiempo === true).length;
-    const eficiencia = total > 0 ? Math.round((completadas / total) * 100) : 0;
-    const tasaPuntualidad = completadas > 0 ? Math.round((completadasATiempo / completadas) * 100) : 0;
 
+    // 2. Calcular completadas a tiempo (Lógica Solicitada)
+    const completadasATiempo = tareasCompletadasList.filter(t => {
+      // Prioridad 1: Si la base de datos ya tiene el flag, úsalo
+      if (t.completada_a_tiempo === true) return true;
+      if (t.completada_a_tiempo === false) return false;
+
+      // Prioridad 2: Calcular manualmente
+      // Convertimos a timestamps para comparar con precisión
+      const fechaFin = new Date(t.fecha_fin).getTime();
+      const fechaCompletado = new Date(t.fecha_completado!).getTime();
+
+      // Si se completó ANTES o EXACTAMENTE en el momento de vencer, cuenta como a tiempo.
+      return fechaCompletado <= fechaFin;
+    }).length;
+
+    const eficiencia = total > 0 ? Math.round((completadas / total) * 100) : 0;
+
+    // 3. Tasa de Puntualidad (La lógica del 100% que baja si hay tardías)
+    // Explicación: Si tengo 10 completadas y 10 fueron a tiempo = 100%
+    // Si tengo 10 completadas y 1 fue tarde = 90%
+    const tasaPuntualidad = completadas > 0
+      ? Math.round((completadasATiempo / completadas) * 100)
+      : 0; // Si no ha completado nada, se queda en 0 (o puedes poner 100 si prefieres ser optimista)
     // Distribución por estado
+    
     const distribucionEstados = data.estados.map(estado => ({
       name: estado.nombre,
       value: data.tareas.filter(t => t.estado_id === estado.id).length,
@@ -363,34 +483,87 @@ const AdminView = () => {
       };
     });
 
-    // Usuarios más activos
+    // Usuarios más activos y SCORE DE RENDIMIENTO - MEJORADO Y CORREGIDO
     const usuariosActivos = data.usuarios.map(user => {
+      // Filtrar tareas donde el usuario está asignado (incluyendo auto-asignadas para mostrar actividad completa)
       const tareasAsignadas = data.tareas.filter(t => t.asignado_a === user.id);
       const tareasCreadas = data.tareas.filter(t => t.creador_id === user.id);
       const comentariosUser = data.comentarios.filter(c => c.usuario_id === user.id);
 
+      // Tareas completadas por el usuario (todas las que completó, sin importar quién las asignó)
+      const tareasCompletadas = tareasAsignadas.filter(t =>
+        t.estado?.nombre === 'Completada' && t.fecha_completado
+      );
+
+      // CÁLCULO DEL SCORE MEJORADO
+      let puntajeTotal = 0;
+      let puntajeMaximo = 0;
+
+      tareasCompletadas.forEach(tarea => {
+        // Usar completada_a_tiempo si está disponible, si no calcularlo
+        let esATiempo = tarea.completada_a_tiempo;
+
+        if (esATiempo === null || esATiempo === undefined) {
+          // Calcular manualmente si no está establecido
+          const fechaFin = new Date(tarea.fecha_fin);
+          const fechaCompletado = new Date(tarea.fecha_completado!);
+          esATiempo = fechaCompletado <= fechaFin;
+        }
+
+        const PUNTOS_BASE = 10;
+        puntajeMaximo += PUNTOS_BASE;
+
+        if (esATiempo) {
+          // Bonus adicional si se completó antes del plazo
+          const fechaFin = new Date(tarea.fecha_fin);
+          const fechaCompletado = new Date(tarea.fecha_completado!);
+          const diasAdelanto = Math.floor((fechaFin.getTime() - fechaCompletado.getTime()) / (1000 * 3600 * 24));
+
+          if (diasAdelanto > 0) {
+            // Terminó antes: puntos base + bonus por cada día de adelanto
+            puntajeTotal += PUNTOS_BASE + (diasAdelanto * 2);
+          } else {
+            // Terminó justo a tiempo: solo puntos base
+            puntajeTotal += PUNTOS_BASE;
+          }
+        } else {
+          // Terminó tarde: mitad de puntos
+          puntajeTotal += Math.floor(PUNTOS_BASE / 2);
+        }
+      });
+
+      // Si no hay tareas completadas, dar un score base de 0
+      if (tareasCompletadas.length === 0) {
+        puntajeTotal = 0;
+      }
+
+      // Puntos adicionales por actividad (comentarios y creación de tareas)
+      puntajeTotal += Math.min(comentariosUser.length * 2, 50); // Máximo 50 puntos por comentarios
+      puntajeTotal += Math.min(tareasCreadas.length * 1, 30); // Máximo 30 puntos por tareas creadas
+
       return {
         id: user.id,
-        nombre: user.nombre_completo,
+        nombre: user.nombre_completo || user.email || 'Usuario sin nombre',
         departamento: user.departamento?.nombre || 'Sin departamento',
         rol: user.roles?.nombre || 'Usuario',
         asignadas: tareasAsignadas.length,
         creadas: tareasCreadas.length,
-        completadas: tareasAsignadas.filter(t => t.estado?.nombre === 'Completada').length,
+        completadas: tareasCompletadas.length,
         comentarios: comentariosUser.length,
-        score: (tareasAsignadas.length * 2) + tareasCreadas.length + comentariosUser.length
+        score: puntajeTotal,
+        eficiencia: tareasAsignadas.length > 0 ? Math.round((tareasCompletadas.length / tareasAsignadas.length) * 100) : 0
       };
-    }).sort((a, b) => b.score - a.score).slice(0, 10);
+    })
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 10);
 
     // Métricas de colaboración
     const totalComentarios = data.comentarios.length;
     const totalAdjuntos = data.adjuntos.length;
     const comentariosPorTarea = total > 0 ? (totalComentarios / total).toFixed(1) : '0';
 
-    // Rendimiento económico
-    const totalBonos = data.rendimientos.reduce((sum, r) => sum + (r.bono_rendimiento || 0), 0);
     const promedioRendimiento = data.rendimientos.length > 0
-      ? data.rendimientos.reduce((sum, r) => sum + r.porcentaje_rendimiento, 0) / data.rendimientos.length
+      ? data.rendimientos.reduce((sum, r) => sum + Number(r.porcentaje_rendimiento), 0) / data.rendimientos.length
       : 0;
 
     return {
@@ -408,121 +581,72 @@ const AdminView = () => {
       totalComentarios,
       totalAdjuntos,
       comentariosPorTarea,
-      totalBonos,
       promedioRendimiento
     };
-  }, [data]);
-
-  const exportToExcel = async () => {
-    setExporting(true);
-    try {
-      const wb = XLSX.utils.book_new();
-
-      // Hoja de resumen
-      const summaryData = [
-        ['Métrica', 'Valor'],
-        ['Total Tareas', analytics.total],
-        ['Tareas Completadas', analytics.completadas],
-        ['Tareas Vencidas', analytics.vencidas],
-        ['Eficiencia', `${analytics.eficiencia}%`],
-        ['Tasa Puntualidad', `${analytics.tasaPuntualidad}%`],
-        ['Total Comentarios', analytics.totalComentarios],
-        ['Total Adjuntos', analytics.totalAdjuntos],
-        ['Bonos Totales', formatCurrency(analytics.totalBonos)]
-      ];
-      const wsSummary = XLSX.utils.aoa_to_sheet(summaryData);
-      XLSX.utils.book_append_sheet(wb, wsSummary, 'Resumen');
-
-      // Hoja de usuarios activos
-      const usersData = analytics.usuariosActivos.map((u, i) => ({
-        'Rank': i + 1,
-        'Usuario': u.nombre,
-        'Departamento': u.departamento,
-        'Rol': u.rol,
-        'Tareas Asignadas': u.asignadas,
-        'Tareas Completadas': u.completadas,
-        'Tareas Creadas': u.creadas,
-        'Comentarios': u.comentarios,
-        'Score': u.score
-      }));
-      const wsUsers = XLSX.utils.json_to_sheet(usersData);
-      XLSX.utils.book_append_sheet(wb, wsUsers, 'Usuarios Activos');
-
-      // Hoja de rendimiento por departamento
-      const deptData = analytics.rendimientoDepartamentos.map(d => ({
-        'Departamento': d.name,
-        'Total Tareas': d.total,
-        'Completadas': d.completadas,
-        'Vencidas': d.vencidas,
-        'Tasa Éxito': `${d.tasa}%`
-      }));
-      const wsDept = XLSX.utils.json_to_sheet(deptData);
-      XLSX.utils.book_append_sheet(wb, wsDept, 'Rendimiento por Departamento');
-
-      XLSX.writeFile(wb, `dashboard_admin_${new Date().toISOString().split('T')[0]}.xlsx`);
-    } catch (error) {
-      console.error('Error exportando a Excel:', error);
-    } finally {
-      setExporting(false);
-    }
-  };
+  }, [data, startDate, endDate]);
 
   if (loading) {
-    return <LoadingSkeleton />;
+    return <LoadingState />;
   }
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Header con exportación - Responsive */}
-      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-white dark:bg-slate-800 rounded-xl p-4 md:p-6 shadow-sm border border-slate-200 dark:border-slate-700">
-        <div>
-          <h2 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2 md:gap-3">
-            <Layout size={20} className="text-slate-600 dark:text-slate-400 md:w-6 md:h-6" />
-            Panel de Control Administrativo
-          </h2>
-          <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Visión completa del sistema</p>
+      {/* Header con exportación */}
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4
+                bg-white dark:bg-slate-800
+                rounded-2xl p-4 md:p-6
+                shadow-sm border border-slate-200 dark:border-slate-700">
+
+        {/* TÍTULO */}
+        <div className="flex items-center gap-3">
+          <div className="p-3 sm:p-4 bg-linear-to-br from-indigo-400 to-blue-800
+                    rounded-2xl shadow-lg shadow-indigo-500/30 shrink-0">
+            <Layout className="h-6 w-6 sm:h-8 sm:w-8 text-white" />
+          </div>
+
+          <div>
+            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold
+                     bg-linear-to-r from-indigo-600 to-blue-800
+                     bg-clip-text text-transparent">
+              Panel de Control Administrativo
+            </h2>
+            <p className="text-slate-500 text-sm flex items-center gap-2">
+              <Layout size={14} />
+              Visión completa del sistema
+            </p>
+          </div>
         </div>
+
+        {/* FILTROS */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 w-full lg:w-auto">
-          {/* Filtro de fechas */}
-          <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-700 rounded-lg px-3 py-2 w-full sm:w-auto">
+
+          <div className="flex items-center gap-2
+                    bg-slate-50 dark:bg-slate-700
+                    rounded-xl px-4 py-2
+                    border border-slate-200 dark:border-slate-600
+                    shadow-sm">
             <Calendar size={16} className="text-slate-400" />
+
             <input
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              className="border-none bg-transparent focus:ring-0 text-sm w-32"
-              placeholder="Inicio"
+              className="border-none bg-transparent focus:ring-0 text-sm w-32 text-slate-600 dark:text-slate-200"
             />
-            <span className="text-slate-400">-</span>
+
+            <span className="text-slate-400">—</span>
+
             <input
               type="date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
-              className="border-none bg-transparent focus:ring-0 text-sm w-32"
-              placeholder="Fin"
+              className="border-none bg-transparent focus:ring-0 text-sm w-32 text-slate-600 dark:text-slate-200"
             />
           </div>
 
-          {/* Botón de exportación */}
-          <button
-            onClick={exportToExcel}
-            disabled={exporting}
-            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-900 text-white rounded-lg hover:bg-slate-800 disabled:opacity-50 transition-all shadow-sm w-full sm:w-auto"
-          >
-            {exporting ? (
-              <>
-                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                <span className="text-sm font-medium">Exportando...</span>
-              </>
-            ) : (
-              <>
-                <Download size={18} />
-                <span className="text-sm font-medium">Exportar Excel</span>
-              </>
-            )}
-          </button>
         </div>
       </div>
+
 
       {/* KPIs Principales */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
@@ -553,7 +677,7 @@ const AdminView = () => {
       </div>
 
       {/* KPIs Secundarios */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
         <StatCard
           title="Usuarios Activos"
           value={data.usuarios.length}
@@ -561,21 +685,44 @@ const AdminView = () => {
           subtext="En el sistema"
         />
         <StatCard
-          title="Bonos Totales"
-          value={formatCurrency(analytics.totalBonos)}
-          icon={DollarSign}
-          subtext="Este período"
-        />
-        <StatCard
-          title="Promedio Rendimiento"
+          title="Promedio Rendimiento Mensual"
           value={`${analytics.promedioRendimiento.toFixed(1)}%`}
           icon={BarChart3}
           subtext="Todos los usuarios"
         />
+        <Card className="shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md transition-all duration-300">
+          <div className="flex items-center justify-between">
+            <div>
+              <h6 className="font-bold text-slate-900 dark:text-white">Comentarios</h6>
+              <p className="text-xs text-slate-500">Total en el sistema</p>
+              <p className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white mt-2">
+                {analytics.totalComentarios}
+              </p>
+              <p className="text-xs text-slate-500 mt-1">{analytics.comentariosPorTarea} por tarea</p>
+            </div>
+            <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-700">
+              <MessageSquare size={20} className="text-slate-600 dark:text-slate-400" />
+            </div>
+          </div>
+        </Card>
+        <Card className="shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md transition-all duration-300">
+          <div className="flex items-center justify-between">
+            <div>
+              <h6 className="font-bold text-slate-900 dark:text-white">Adjuntos</h6>
+              <p className="text-xs text-slate-500">Total subidos</p>
+              <p className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white mt-2">
+                {analytics.totalAdjuntos}
+              </p>
+              <p className="text-xs text-slate-500 mt-1">Archivos en tareas</p>
+            </div>
+            <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-700">
+              <Paperclip size={20} className="text-slate-600 dark:text-slate-400" />
+            </div>
+          </div>
+        </Card>
       </div>
 
       {/* Gráficos Principales */}
-
       {/* Tendencia Semanal */}
       <div className="lg:col-span-2">
         <Card className="shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md transition-shadow duration-300">
@@ -627,7 +774,6 @@ const AdminView = () => {
         />
       </Card>
 
-
       {/* Rendimiento por Departamento */}
       <Card className="shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md transition-shadow duration-300">
         <div className="flex items-center justify-between mb-6">
@@ -637,17 +783,6 @@ const AdminView = () => {
               <h5 className="text-lg font-bold text-slate-900 dark:text-white">Rendimiento por Departamento</h5>
               <p className="text-xs text-slate-500 dark:text-slate-400">Análisis comparativo apilado</p>
             </div>
-          </div>
-          <div className="flex gap-2">
-            <span className="flex items-center gap-1 text-xs text-slate-500 bg-slate-50 dark:bg-slate-700 px-2 py-1 rounded">
-              <span className="w-3 h-3 rounded bg-slate-400" /> Total
-            </span>
-            <span className="flex items-center gap-1 text-xs text-slate-500 bg-slate-50 dark:bg-slate-700 px-2 py-1 rounded">
-              <span className="w-3 h-3 rounded bg-slate-600" /> Completadas
-            </span>
-            <span className="flex items-center gap-1 text-xs text-slate-500 bg-slate-50 dark:bg-slate-700 px-2 py-1 rounded">
-              <span className="w-3 h-3 rounded bg-slate-800" /> Vencidas
-            </span>
           </div>
         </div>
         <PerformanceChart
@@ -674,74 +809,6 @@ const AdminView = () => {
         />
       </Card>
 
-      {/* Usuarios Más Activos */}
-      <Card className="shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md transition-shadow duration-300">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-          <div className="flex items-center gap-3">
-            <Award size={18} className="text-slate-600 dark:text-slate-400" />
-            <div>
-              <h5 className="text-lg font-bold text-slate-900 dark:text-white">Top 10 Usuarios Más Activos</h5>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Colaboradores destacados del período</p>
-            </div>
-          </div>
-          <Badge color="gray">{analytics.usuariosActivos.length} usuarios</Badge>
-        </div>
-
-        <div className="overflow-x-auto -mx-4 sm:mx-0">
-          <div className="min-w-[640px] sm:min-w-full">
-            <Table hoverable className="min-w-full">
-              <TableHead>
-                <TableHeadCell className="bg-slate-50 dark:bg-slate-700/50">Rank</TableHeadCell>
-                <TableHeadCell className="bg-slate-50 dark:bg-slate-700/50">Usuario</TableHeadCell>
-                <TableHeadCell className="bg-slate-50 dark:bg-slate-700/50 hidden md:table-cell">Departamento</TableHeadCell>
-                <TableHeadCell className="bg-slate-50 dark:bg-slate-700/50 hidden lg:table-cell">Rol</TableHeadCell>
-                <TableHeadCell className="bg-slate-50 dark:bg-slate-700/50">Asignadas</TableHeadCell>
-                <TableHeadCell className="bg-slate-50 dark:bg-slate-700/50">Completadas</TableHeadCell>
-                <TableHeadCell className="bg-slate-50 dark:bg-slate-700/50">Score</TableHeadCell>
-              </TableHead>
-              <TableBody className="divide-y divide-slate-200 dark:divide-slate-700/50">
-                {analytics.usuariosActivos.map((user, idx) => (
-                  <TableRow key={user.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
-                    <TableCell className="font-bold whitespace-nowrap">
-                      <span className={`inline-flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold ${idx === 0 ? 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300' :
-                        idx === 1 ? 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300' :
-                          idx === 2 ? 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300' :
-                            'bg-slate-50 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
-                        }`}>
-                        {idx + 1}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-600 flex items-center justify-center text-slate-700 dark:text-slate-300 text-xs font-bold">
-                          {user.nombre.charAt(0)}
-                        </div>
-                        <span className="font-semibold text-slate-700 dark:text-slate-300">{user.nombre}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="hidden md:table-cell text-slate-600 dark:text-slate-400">{user.departamento}</TableCell>
-                    <TableCell className="hidden lg:table-cell">
-                      <Badge color="gray" className="font-medium">
-                        {user.rol}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-slate-600 dark:text-slate-400">{user.asignadas}</TableCell>
-                    <TableCell>
-                      <Badge color="gray" className="font-semibold">{user.completadas}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <span className="font-bold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded-lg">
-                        {user.score}
-                      </span>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        </div>
-      </Card>
-
       {/* Distribución por Prioridad */}
       <Card className="shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md transition-shadow duration-300">
         <div className="flex items-center gap-3 mb-6">
@@ -766,57 +833,6 @@ const AdminView = () => {
           tooltipFormatter={(value, name) => [`${value} tareas`, name]}
         />
       </Card>
-
-      {/* Métricas de Colaboración */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
-        <Card className="shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md transition-all duration-300">
-          <div className="flex items-center justify-between">
-            <div>
-              <h6 className="font-bold text-slate-900 dark:text-white">Comentarios</h6>
-              <p className="text-xs text-slate-500">Total en el sistema</p>
-              <p className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white mt-2">
-                {analytics.totalComentarios}
-              </p>
-              <p className="text-xs text-slate-500 mt-1">{analytics.comentariosPorTarea} comentarios por tarea en promedio</p>
-            </div>
-            <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-700">
-              <MessageSquare size={20} className="text-slate-600 dark:text-slate-400" />
-            </div>
-          </div>
-        </Card>
-
-        <Card className="shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md transition-all duration-300">
-          <div className="flex items-center justify-between">
-            <div>
-              <h6 className="font-bold text-slate-900 dark:text-white">Archivos Adjuntos</h6>
-              <p className="text-xs text-slate-500">Total subidos</p>
-              <p className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white mt-2">
-                {analytics.totalAdjuntos}
-              </p>
-              <p className="text-xs text-slate-500 mt-1">Adjuntos en tareas</p>
-            </div>
-            <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-700">
-              <Paperclip size={20} className="text-slate-600 dark:text-slate-400" />
-            </div>
-          </div>
-        </Card>
-
-        <Card className="shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md transition-all duration-300">
-          <div className="flex items-center justify-between">
-            <div>
-              <h6 className="font-bold text-slate-900 dark:text-white">Bonos de Rendimiento</h6>
-              <p className="text-xs text-slate-500">Total distribuido</p>
-              <p className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white mt-2">
-                {formatCurrency(analytics.totalBonos)}
-              </p>
-              <p className="text-xs text-slate-500 mt-1">Este período</p>
-            </div>
-            <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-700">
-              <DollarSign size={20} className="text-slate-600 dark:text-slate-400" />
-            </div>
-          </div>
-        </Card>
-      </div>
     </div>
   );
 };
@@ -836,16 +852,42 @@ const ManagerView = () => {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
+  // DENTRO DE ManagerView
+
   useEffect(() => {
     if (profile?.departamento_id) {
       fetchData();
+
+      // Suscripción específica para el departamento
+      const channel = supabase
+        .channel('manager-dashboard-changes')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'tareas',
+            filter: `departamento_id=eq.${profile.departamento_id}` // Filtra solo su depto
+          },
+          () => fetchData(false)
+        )
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'rendimiento_mensual' },
+          () => fetchData(false)
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
     }
   }, [profile?.departamento_id, timeRange, startDate, endDate]);
 
-  const fetchData = async () => {
+  const fetchData = async (showLoading = true) => {
     if (!profile?.departamento_id) return;
 
-    setLoading(true);
+    if (showLoading) setLoading(true);
     try {
       const dateRange = getDateRange(timeRange, startDate, endDate);
       const start = dateRange.start;
@@ -870,6 +912,7 @@ const ManagerView = () => {
         { data: comentarios },
         { data: rendimientos }
       ] = await Promise.all([
+        // Filtrar tareas por rango de fechas y departamento
         supabase
           .from('tareas')
           .select(`
@@ -880,18 +923,50 @@ const ManagerView = () => {
             creador:creador_id(nombre_completo, avatar_url)
           `)
           .eq('departamento_id', profile.departamento_id)
-          .gte('created_at', start).lte('created_at', end),
+          .gte('created_at', start)
+          .lte('created_at', end),
 
         supabase.from('estados_tarea').select('*'),
         supabase.from('comentarios').select('*').gte('created_at', start).lte('created_at', end),
 
-        supabase
-          .from('rendimiento_mensual')
-          .select('*, usuario:usuario_id(nombre_completo)')
-          .in('usuario_id', userIds)
-          .order('anio', { ascending: false })
-          .order('mes', { ascending: false })
-          .limit(6)
+        // Filtrar rendimiento mensual por rango de fechas y usuarios del departamento
+        (() => {
+          let query = supabase
+            .from('rendimiento_mensual')
+            .select('*, usuario:usuario_id(nombre_completo)')
+            .in('usuario_id', userIds);
+
+          // Filtrar por año y mes del rango seleccionado
+          const startDateObj = new Date(start);
+          const endDateObj = new Date(end);
+          const startYear = startDateObj.getFullYear();
+          const startMonth = startDateObj.getMonth() + 1;
+          const endYear = endDateObj.getFullYear();
+          const endMonth = endDateObj.getMonth() + 1;
+
+          // Construir filtro para rango de años y meses
+          const filters = [];
+          for (let year = startYear; year <= endYear; year++) {
+            const monthStart = (year === startYear) ? startMonth : 1;
+            const monthEnd = (year === endYear) ? endMonth : 12;
+
+            if (year === startYear && year === endYear) {
+              filters.push(`anio.eq.${year},mes.gte.${monthStart},mes.lte.${monthEnd}`);
+            } else if (year === startYear) {
+              filters.push(`anio.eq.${year},mes.gte.${monthStart}`);
+            } else if (year === endYear) {
+              filters.push(`anio.eq.${year},mes.lte.${monthEnd}`);
+            } else {
+              filters.push(`anio.eq.${year}`);
+            }
+          }
+
+          if (filters.length > 0) {
+            query = query.or(filters.join(','));
+          }
+
+          return query.order('anio', { ascending: false }).order('mes', { ascending: false }).limit(6);
+        })()
       ]);
 
       setData({
@@ -904,111 +979,198 @@ const ManagerView = () => {
     } catch (error) {
       console.error('Error cargando datos Manager:', error);
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   };
 
+  // DENTRO DE ManagerView
+
   const analytics = useMemo(() => {
+    // Totales simples
     const pendientes = data.tareas.filter(t =>
-      t.estado?.nombre !== 'Completada' && t.estado?.nombre !== 'Rechazada'
+      ['Pendiente', 'En Progreso'].includes(t.estado?.nombre || '')
     ).length;
 
     const completadas = data.tareas.filter(t => t.estado?.nombre === 'Completada').length;
     const bloqueadas = data.tareas.filter(t => t.estado?.nombre === 'Bloqueada').length;
     const altaPrioridad = data.tareas.filter(t =>
-      t.prioridad?.nombre === 'Urgente' || t.prioridad?.nombre === 'Alta'
+      ['Urgente', 'Alta'].includes(t.prioridad?.nombre || '')
     ).length;
 
-    // Performance por miembro
+    // --- MEJORA CRÍTICA DE PERFORMANCE MIEMBROS ---
     const performanceMiembros = data.usuarios.map(user => {
+      // 1. Filtrar tareas de este usuario
       const tareasUsuario = data.tareas.filter(t => t.asignado_a === user.id);
-      const completadasUsuario = tareasUsuario.filter(t => t.estado?.nombre === 'Completada').length;
-      const aTiempoUsuario = tareasUsuario.filter(t => t.completada_a_tiempo === true).length;
 
-      const rendimientoUser = data.rendimientos.find(r => r.usuario_id === user.id);
+      // 2. Calcular diferentes estados
+      const tareasCompletadas = tareasUsuario.filter(t => t.estado?.nombre === 'Completada');
+      const completadasCount = tareasCompletadas.length;
+
+      const pendientesCount = tareasUsuario.filter(t =>
+        ['Pendiente', 'En Progreso'].includes(t.estado?.nombre || '')
+      ).length;
+
+      const bloqueadasCount = tareasUsuario.filter(t => t.estado?.nombre === 'Bloqueada').length;
+
+      // 3. Puntualidad mejorada
+      const aTiempoCount = tareasCompletadas.filter(t => {
+        if (!t.fecha_completado) return false;
+
+        // Usar el campo si está disponible, si no calcularlo
+        let esATiempo = t.completada_a_tiempo;
+
+        if (esATiempo === null || esATiempo === undefined) {
+          const fin = new Date(t.fecha_fin).getTime();
+          const comp = new Date(t.fecha_completado).getTime();
+          esATiempo = comp <= fin; // Sin tolerancia para ser más estrictos
+        }
+
+        return esATiempo === true;
+      }).length;
+
+      // 4. Rendimiento mejorado
+      const rendimientoObj = data.rendimientos.find(r => String(r.usuario_id) === String(user.id));
+
+      let rendimientoCalculado = rendimientoObj ? rendimientoObj.porcentaje_rendimiento : 0;
+
+      if (!rendimientoObj && tareasUsuario.length > 0) {
+        // Fórmula de rendimiento más completa
+        const eficiencia = (completadasCount / tareasUsuario.length) * 100;
+        const puntualidad = completadasCount > 0 ? (aTiempoCount / completadasCount) * 100 : 0;
+        const penalizacionBloqueo = bloqueadasCount > 0 ? (bloqueadasCount / tareasUsuario.length) * 100 : 0;
+
+        rendimientoCalculado = (eficiencia * 0.5) + (puntualidad * 0.4) - (penalizacionBloqueo * 0.1);
+        rendimientoCalculado = Math.max(0, Math.min(100, rendimientoCalculado)); // Mantener entre 0-100
+      }
+
+      // 5. Tasa de éxito (eficiencia)
+      const tasaExito = tareasUsuario.length > 0 ? Math.round((completadasCount / tareasUsuario.length) * 100) : 0;
+      const tasaPuntualidad = completadasCount > 0 ? Math.round((aTiempoCount / completadasCount) * 100) : 0;
 
       return {
         id: user.id,
-        nombre: user.nombre_completo,
+        nombre: user.nombre_completo || user.email || 'Usuario sin nombre',
         avatar: user.avatar_url,
         asignadas: tareasUsuario.length,
-        completadas: completadasUsuario,
-        pendientes: tareasUsuario.filter(t =>
-          t.estado?.nombre === 'Pendiente' || t.estado?.nombre === 'En Progreso'
-        ).length,
-        tasa: tareasUsuario.length > 0 ? Math.round((completadasUsuario / tareasUsuario.length) * 100) : 0,
-        puntualidad: completadasUsuario > 0 ? Math.round((aTiempoUsuario / completadasUsuario) * 100) : 0,
-        rendimiento: rendimientoUser?.porcentaje_rendimiento || 0,
-        bono: rendimientoUser?.bono_rendimiento || 0
+        completadas: completadasCount,
+        pendientes: pendientesCount,
+        bloqueadas: bloqueadasCount,
+        tasa: tasaExito,
+        puntualidad: tasaPuntualidad,
+        rendimiento: Math.round(rendimientoCalculado),
+        // Métricas adicionales para mejor análisis
+        calidad: Math.round(tasaExito * 0.6 + tasaPuntualidad * 0.4)
       };
-    }).sort((a, b) => b.tasa - a.tasa);
+    })
+      .sort((a, b) => b.rendimiento - a.rendimiento);
 
-    // Tendencia últimos 30 días
-    const tendencia30Dias = Array.from({ length: 30 }, (_, i) => {
-      const date = new Date();
-      date.setDate(date.getDate() - (29 - i));
-      return {
-        name: date.getDate(),
-        completadas: data.tareas.filter(t => {
-          if (!t.fecha_completado) return false;
-          const completado = new Date(t.fecha_completado);
-          return completado.toDateString() === date.toDateString();
-        }).length
-      };
-    });
-
-    // Distribución de estados
+    // Distribución simple para gráficos
     const distribucionEstados = data.estados.map(estado => ({
       name: estado.nombre,
       value: data.tareas.filter(t => t.estado_id === estado.id).length,
       color: estado.color
     })).filter(d => d.value > 0);
 
+    // Tendencia 30 días para Manager
+    const tendencia30Dias = Array.from({ length: 30 }, (_, i) => {
+      const date = new Date();
+      date.setDate(date.getDate() - (29 - i));
+
+      // Normalizamos al inicio y fin del día local
+      date.setHours(0, 0, 0, 0);
+      const startOfDay = new Date(date);
+
+      const endOfDay = new Date(date);
+      endOfDay.setDate(date.getDate() + 1);
+
+      const completadasDia = data.tareas.filter(t => {
+        // 1. Verificación robusta de estado y fecha
+        if (t.estado?.nombre !== 'Completada' || !t.fecha_completado) return false;
+
+        // 2. Parseo seguro de fecha
+        const fechaCompletado = new Date(t.fecha_completado);
+
+        // 3. Comparación
+        return fechaCompletado >= startOfDay && fechaCompletado < endOfDay;
+      }).length;
+
+      return {
+        name: date.toLocaleDateString('es-EC', { day: '2-digit', month: 'short' }),
+        // CORRECCIÓN CLAVE: Cambiamos 'completadas' por 'value'
+        // La mayoría de los componentes de gráficos buscan 'value' por defecto si no se especifica dataKey
+        value: completadasDia
+      };
+    });
+
     return {
       pendientes,
       completadas,
       bloqueadas,
       altaPrioridad,
-      performanceMiembros,
+      performanceMiembros, // Asegúrate de usar la variable completa que calculaste
       tendencia30Dias,
       distribucionEstados
     };
-  }, [data]);
+  }, [data, startDate, endDate]);
 
   if (loading) {
-    return <LoadingSkeleton />;
+    return <LoadingState />;
   }
 
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
-      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-white dark:bg-slate-800 rounded-xl p-4 md:p-6 shadow-sm border border-slate-200 dark:border-slate-700">
-        <div>
-          <h2 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2 md:gap-3">
-            <Briefcase size={20} className="text-slate-600 dark:text-slate-400 md:w-6 md:h-6" />
-            Panel de Control del Manager
-          </h2>
-          <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Gestión de tu departamento</p>
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4
+                bg-white dark:bg-slate-800
+                rounded-2xl p-4 md:p-6
+                shadow-sm border border-slate-200 dark:border-slate-700">
+
+        {/* TÍTULO */}
+        <div className="flex items-center gap-3">
+          <div className="p-3 sm:p-4 bg-linear-to-br from-indigo-400 to-blue-800
+                    rounded-2xl shadow-lg shadow-indigo-500/30 shrink-0">
+            <Briefcase className="h-6 w-6 sm:h-8 sm:w-8 text-white" />
+          </div>
+
+          <div>
+            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold
+                     bg-linear-to-r from-indigo-600 to-blue-800
+                     bg-clip-text text-transparent">
+              Panel de Control
+            </h2>
+            <p className="text-slate-500 text-sm flex items-center gap-2">
+              <Users size={14} />
+              Gestión de tu departamento
+            </p>
+          </div>
         </div>
-        <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-700 rounded-lg px-3 py-2 w-full lg:w-auto">
+
+        {/* FILTRO FECHAS */}
+        <div className="flex items-center gap-2
+                  bg-slate-50 dark:bg-slate-700
+                  rounded-xl px-4 py-2
+                  border border-slate-200 dark:border-slate-600
+                  shadow-sm w-full lg:w-auto">
           <Calendar size={16} className="text-slate-400" />
+
           <input
             type="date"
             value={startDate}
             onChange={(e) => setStartDate(e.target.value)}
-            className="border-none bg-transparent focus:ring-0 text-sm w-32"
-            placeholder="Inicio"
+            className="border-none bg-transparent focus:ring-0 text-sm w-32 text-slate-600 dark:text-slate-200"
           />
-          <span className="text-slate-400">-</span>
+
+          <span className="text-slate-400">—</span>
+
           <input
             type="date"
             value={endDate}
             onChange={(e) => setEndDate(e.target.value)}
-            className="border-none bg-transparent focus:ring-0 text-sm w-32"
-            placeholder="Fin"
+            className="border-none bg-transparent focus:ring-0 text-sm w-32 text-slate-600 dark:text-slate-200"
           />
         </div>
       </div>
+
 
       {/* KPIs Manager */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
@@ -1038,17 +1200,17 @@ const ManagerView = () => {
         />
       </div>
 
-      {/* Gráficos Manager */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
-        {/* Tendencia 30 días */}
-        <Card className="shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md transition-shadow duration-300">
-          <div className="flex items-center gap-3 mb-6">
-            <TrendingUp size={18} className="text-slate-600 dark:text-slate-400" />
-            <div>
-              <h5 className="text-lg font-bold text-slate-900 dark:text-white">Completadas - Últimos 30 Días</h5>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Evolución diaria con progreso</p>
-            </div>
+
+      {/* Tendencia 30 días */}
+      <Card className="shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md transition-shadow duration-300">
+        <div className="flex items-center gap-3 mb-6">
+          <TrendingUp size={18} className="text-slate-600 dark:text-slate-400" />
+          <div>
+            <h5 className="text-lg font-bold text-slate-900 dark:text-white">Completadas - Últimos 30 Días</h5>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Evolución diaria con progreso</p>
           </div>
+        </div>
+        {analytics.tendencia30Dias.length > 0 && (
           <PerformanceChart
             data={analytics.tendencia30Dias}
             title=""
@@ -1062,108 +1224,30 @@ const ManagerView = () => {
             tooltipFormatter={(value) => [`${value} tareas`, 'Completadas']}
             showDataLabels
           />
-        </Card>
+        )}
+      </Card>
 
-        {/* Distribución de Estados */}
-        <Card className="shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md transition-shadow duration-300">
-          <div className="flex items-center gap-3 mb-6">
-            <PieChartIcon size={18} className="text-slate-600 dark:text-slate-400" />
-            <div>
-              <h5 className="text-lg font-bold text-slate-900 dark:text-white">Estado de las Tareas</h5>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Distribución actual con detalles</p>
-            </div>
-          </div>
-          <PerformanceChart
-            data={analytics.distribucionEstados}
-            title=""
-            type="pie"
-            height={280}
-            colors={analytics.distribucionEstados.map(d => d.color)}
-            enable3D
-            animationDuration={1800}
-            showLegend
-            subtitle=""
-            tooltipFormatter={(value, name) => [`${value} tareas`, name]}
-          />
-        </Card>
-      </div>
-
-      {/* Performance del Equipo */}
+      {/* Distribución de Estados */}
       <Card className="shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md transition-shadow duration-300">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-          <div className="flex items-center gap-3">
-            <Award size={18} className="text-slate-600 dark:text-slate-400" />
-            <div>
-              <h5 className="text-lg font-bold text-slate-900 dark:text-white">Performance del Equipo</h5>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Rendimiento individual</p>
-            </div>
+        <div className="flex items-center gap-3 mb-6">
+          <PieChartIcon size={18} className="text-slate-600 dark:text-slate-400" />
+          <div>
+            <h5 className="text-lg font-bold text-slate-900 dark:text-white">Estado de las Tareas</h5>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Distribución actual con detalles</p>
           </div>
         </div>
-
-        <div className="overflow-x-auto -mx-4 sm:mx-0">
-          <div className="min-w-[700px] sm:min-w-full">
-            <Table hoverable className="min-w-full">
-              <TableHead>
-                <TableHeadCell className="bg-slate-50 dark:bg-slate-700/50">Miembro</TableHeadCell>
-                <TableHeadCell className="bg-slate-50 dark:bg-slate-700/50">Asignadas</TableHeadCell>
-                <TableHeadCell className="bg-slate-50 dark:bg-slate-700/50">Completadas</TableHeadCell>
-                <TableHeadCell className="bg-slate-50 dark:bg-slate-700/50">Pendientes</TableHeadCell>
-                <TableHeadCell className="bg-slate-50 dark:bg-slate-700/50">Tasa Éxito</TableHeadCell>
-                <TableHeadCell className="bg-slate-50 dark:bg-slate-700/50 hidden md:table-cell">Rendimiento</TableHeadCell>
-                <TableHeadCell className="bg-slate-50 dark:bg-slate-700/50 hidden lg:table-cell">Bono</TableHeadCell>
-              </TableHead>
-              <TableBody className="divide-y divide-slate-200 dark:divide-slate-700/50">
-                {analytics.performanceMiembros.map(member => (
-                  <TableRow key={member.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        {member.avatar ? (
-                          <img src={member.avatar} alt={member.nombre} className="w-9 h-9 rounded-full object-cover ring-2 ring-slate-200 dark:ring-slate-700" />
-                        ) : (
-                          <div className="w-9 h-9 rounded-full bg-slate-200 dark:bg-slate-600 flex items-center justify-center text-slate-700 dark:text-slate-300 font-bold text-sm">
-                            {member.nombre.charAt(0)}
-                          </div>
-                        )}
-                        <span className="font-semibold text-slate-700 dark:text-slate-300">{member.nombre}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-slate-600 dark:text-slate-400 font-medium">{member.asignadas}</TableCell>
-                    <TableCell>
-                      <Badge color="gray" className="font-semibold">{member.completadas}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge color="gray" className="font-semibold">{member.pendientes}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Progress
-                          progress={member.tasa}
-                          size="sm"
-                          color="gray"
-                          className="w-20 md:w-24"
-                        />
-                        <span className="text-xs font-bold whitespace-nowrap">{member.tasa}%</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="hidden md:table-cell">
-                      <span className={`font-bold px-2 py-1 rounded-lg text-sm ${member.rendimiento >= 80 ? 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300' :
-                        member.rendimiento >= 60 ? 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300' :
-                          'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300'
-                        }`}>
-                        {member.rendimiento.toFixed(1)}%
-                      </span>
-                    </TableCell>
-                    <TableCell className="hidden lg:table-cell">
-                      <span className="font-bold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded-lg text-sm">
-                        {formatCurrency(member.bono)}
-                      </span>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        </div>
+        <PerformanceChart
+          data={analytics.distribucionEstados}
+          title=""
+          type="pie"
+          height={280}
+          colors={analytics.distribucionEstados.map(d => d.color)}
+          enable3D
+          animationDuration={1800}
+          showLegend
+          subtitle=""
+          tooltipFormatter={(value, name) => [`${value} tareas`, name]}
+        />
       </Card>
 
       {/* Gráfico de Rendimiento vs Tasa de Éxito */}
@@ -1175,30 +1259,32 @@ const ManagerView = () => {
             <p className="text-xs text-slate-500 dark:text-slate-400">Análisis multidimensional del equipo</p>
           </div>
         </div>
-        <PerformanceChart
-          data={analytics.performanceMiembros.map(m => ({
-            name: m.nombre,
-            tasa: m.tasa,
-            rendimiento: m.rendimiento,
-            asignadas: m.asignadas
-          }))}
-          title=""
-          type="scatter"
-          height={300}
-          color="#3730A3"
-          enable3D
-          animationDuration={2200}
-          xAxisKey="tasa"
-          yAxisKey="rendimiento"
-          secondaryDataKey="asignadas"
-          tooltipFormatter={(value: any, name: string) => {
-            if (name === 'tasa') return [`${value}%`, 'Tasa de Éxito'];
-            if (name === 'rendimiento') return [`${value}%`, 'Rendimiento'];
-            if (name === 'asignadas') return [`${value}`, 'Tareas Asignadas'];
-            return [`${value}`, String(name)];
-          }}
-          subtitle=""
-        />
+        {analytics.performanceMiembros.length > 0 && (
+          <PerformanceChart
+            data={analytics.performanceMiembros.map(m => ({
+              name: m.nombre,
+              tasa: m.tasa,
+              rendimiento: m.rendimiento,
+              asignadas: m.asignadas
+            }))}
+            title=""
+            type="scatter"
+            height={300}
+            color="#3730A3"
+            enable3D
+            animationDuration={2200}
+            xAxisKey="tasa"
+            yAxisKey="rendimiento"
+            secondaryDataKey="asignadas"
+            tooltipFormatter={(value: any, name: string) => {
+              if (name === 'tasa') return [`${value}%`, 'Tasa de Éxito'];
+              if (name === 'rendimiento') return [`${value}%`, 'Rendimiento'];
+              if (name === 'asignadas') return [`${value}`, 'Tareas Asignadas'];
+              return [`${value}`, String(name)];
+            }}
+            subtitle=""
+          />
+        )}
       </Card>
     </div>
   );
@@ -1216,17 +1302,45 @@ const UserView = () => {
   const [timeRange, setTimeRange] = useState('month');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [userData, setUserData] = useState<Usuario | null>(null);
+
+  // DENTRO DE UserView
 
   useEffect(() => {
     if (profile?.id) {
       fetchData();
+
+      const channel = supabase
+        .channel('user-dashboard-changes')
+        // Escuchar cambios en tareas donde soy asignado o creador es complejo con filtros simples de string,
+        // así que escuchamos la tabla y filtramos en la llamada fetchData
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'tareas' },
+          () => fetchData(false)
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'rendimiento_mensual',
+            filter: `usuario_id=eq.${profile.id}`
+          },
+          () => fetchData(false)
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
     }
   }, [profile?.id, timeRange, startDate, endDate]);
 
-  const fetchData = async () => {
+  const fetchData = async (showLoading = true) => {
     if (!profile?.id) return;
 
-    setLoading(true);
+    if (showLoading) setLoading(true);
     try {
       const dateRange = getDateRange(timeRange, startDate, endDate);
       const start = dateRange.start;
@@ -1235,18 +1349,16 @@ const UserView = () => {
       const [
         { data: tareas },
         { data: comentarios },
-        { data: rendimientos }
+        { data: rendimientos },
+        { data: usuarioInfo }
       ] = await Promise.all([
         supabase
           .from('tareas')
-          .select(`
-            *,
-            prioridad:prioridad_id(nombre, color, nivel),
-            estado:estado_id(nombre, color),
-            departamento:departamento_id(nombre)
-          `)
-          .or(`asignado_a.eq.${profile.id},creador_id.eq.${profile.id}`)
-          .gte('created_at', start).lte('created_at', end),
+          .select(`*, prioridad:prioridad_id(nombre, color, nivel), estado:estado_id(nombre, color), departamento:departamento_id(nombre), asignado:asignado_a(id, nombre_completo, avatar_url, email), creador:creador_id(nombre_completo, avatar_url)`)
+          .eq('asignado_a', profile.id)
+          .neq('creador_id', profile.id) // Excluir tareas auto-asignadas
+          .gte('created_at', start) // Cambiar a created_at para obtener tareas creadas en el rango
+          .lte('created_at', end),
 
         supabase
           .from('comentarios')
@@ -1260,7 +1372,9 @@ const UserView = () => {
           .eq('usuario_id', profile.id)
           .order('anio', { ascending: false })
           .order('mes', { ascending: false })
-          .limit(6)
+          .limit(6),
+
+        supabase.from('usuarios').select('*').eq('id', profile.id).single()
       ]);
 
       setData({
@@ -1268,60 +1382,102 @@ const UserView = () => {
         comentarios: comentarios || [],
         rendimientos: rendimientos || []
       });
+
+      if (usuarioInfo) setUserData(usuarioInfo);
+
     } catch (error) {
       console.error('Error cargando datos Usuario:', error);
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   };
 
   const analytics = useMemo(() => {
-    const pendientes = data.tareas.filter(t =>
+    // Definimos el universo de tareas para el sueldo - SOLO ASIGNADAS POR OTROS
+    const tareasDelMes = data.tareas;
+
+    const pendientes = tareasDelMes.filter(t =>
       t.estado?.nombre === 'Pendiente' || t.estado?.nombre === 'En Progreso'
     );
 
-    const completadas = data.tareas.filter(t => t.estado?.nombre === 'Completada').length;
-    const aTiempo = data.tareas.filter(t => t.completada_a_tiempo === true).length;
-    const total = data.tareas.length;
+    const tareasCompletadas = tareasDelMes.filter(t => t.estado?.nombre === 'Completada');
+    const completadas = tareasCompletadas.length;
+
+    // Calcular tareas a tiempo de forma más robusta
+    const aTiempo = tareasCompletadas.filter(t => {
+      if (!t.fecha_completado) return false;
+
+      // Usar el campo si está disponible, si no calcularlo
+      if (t.completada_a_tiempo !== null && t.completada_a_tiempo !== undefined) {
+        return t.completada_a_tiempo === true;
+      }
+
+      // Calcular manualmente
+      const fechaCompletado = new Date(t.fecha_completado);
+      const fechaFin = new Date(t.fecha_fin);
+      return fechaCompletado <= fechaFin;
+    }).length;
+
+    const total = tareasDelMes.length;
+
+    // Métricas generales
     const tasaExito = total > 0 ? Math.round((completadas / total) * 100) : 0;
     const tasaPuntualidad = completadas > 0 ? Math.round((aTiempo / completadas) * 100) : 0;
 
-    // Próximos vencimientos
-    const proximosVencimientos = data.tareas
+    // Progreso semanal - CORREGIDO para mostrar datos reales
+    const progresoSemanal = Array.from({ length: 7 }, (_, i) => {
+      const date = new Date();
+      date.setDate(date.getDate() - (6 - i));
+
+      // Normalizar inicio y fin del día
+      date.setHours(0, 0, 0, 0);
+      const startOfDay = new Date(date);
+
+      const endOfDay = new Date(date);
+      endOfDay.setDate(date.getDate() + 1);
+
+      const completadasDia = tareasDelMes.filter(t => {
+        if (t.estado?.nombre !== 'Completada' || !t.fecha_completado) return false;
+        const completado = new Date(t.fecha_completado);
+        return completado >= startOfDay && completado < endOfDay;
+      }).length;
+
+      return {
+        name: date.toLocaleDateString('es-EC', { weekday: 'short' }),
+        value: completadasDia // <--- CAMBIO AQUÍ: de 'completadas' a 'value'
+      };
+    });
+
+    // CÁLCULO DEL SUELDO
+    const salarioBase = userData?.salario_base || 0;
+    // Si no hay tareas asignadas para este mes, asumimos cumplimiento del 100% (1) preventivamente,
+    // o 0 si prefieres que empiece en $0 hasta que entregue algo. Aquí he puesto 1 (Inocente hasta demostrar lo contrario).
+    // Si prefieres estricto pon: total > 0 ? (completadas / total) : 0;
+    const porcentajeCumplimiento = total > 0 ? (completadas / total) : 1;
+    const salarioCalculado = salarioBase * porcentajeCumplimiento;
+
+    // Próximos vencimientos (Se calculan sobre las tareas traídas o podrías hacer un fetch aparte si quieres ver futuro lejano)
+    // Aquí ordenamos las del rango actual
+    const proximosVencimientos = tareasDelMes
       .filter(t => t.estado?.nombre !== 'Completada' && t.estado?.nombre !== 'Rechazada')
       .sort((a, b) => new Date(a.fecha_fin).getTime() - new Date(b.fecha_fin).getTime())
       .slice(0, 5);
 
-    // Progreso semanal
-    const progresoSemanal = Array.from({ length: 7 }, (_, i) => {
-      const date = new Date();
-      date.setDate(date.getDate() - (6 - i));
-      return {
-        name: date.toLocaleDateString('es-EC', { weekday: 'short' }),
-        completadas: data.tareas.filter(t => {
-          if (!t.fecha_completado) return false;
-          const completado = new Date(t.fecha_completado);
-          return completado.toDateString() === date.toDateString();
-        }).length
-      };
-    });
-
     // Distribución por prioridad
     const distribucionPrioridad = [
-      { name: 'Urgente', value: data.tareas.filter(t => t.prioridad?.nombre === 'Urgente').length, color: '#DC2626' },
-      { name: 'Alta', value: data.tareas.filter(t => t.prioridad?.nombre === 'Alta').length, color: '#F59E0B' },
-      { name: 'Media', value: data.tareas.filter(t => t.prioridad?.nombre === 'Media').length, color: '#3B82F6' },
-      { name: 'Baja', value: data.tareas.filter(t => t.prioridad?.nombre === 'Baja').length, color: '#10B981' }
+      { name: 'Urgente', value: tareasDelMes.filter(t => t.prioridad?.nombre === 'Urgente').length, color: '#DC2626' },
+      { name: 'Alta', value: tareasDelMes.filter(t => t.prioridad?.nombre === 'Alta').length, color: '#F59E0B' },
+      { name: 'Media', value: tareasDelMes.filter(t => t.prioridad?.nombre === 'Media').length, color: '#3B82F6' },
+      { name: 'Baja', value: tareasDelMes.filter(t => t.prioridad?.nombre === 'Baja').length, color: '#10B981' }
     ];
 
-    // Rendimiento mensual
+    // Rendimiento mensual histórico
     const rendimientoMensual = data.rendimientos.map(r => ({
       name: `${r.mes}/${r.anio}`,
-      rendimiento: r.porcentaje_rendimiento,
-      bono: r.bono_rendimiento || 0
+      rendimiento: r.porcentaje_rendimiento
     }));
 
-    // Último rendimiento
+    // Último rendimiento registrado
     const ultimoRendimiento = data.rendimientos[0];
 
     return {
@@ -1336,55 +1492,95 @@ const UserView = () => {
       distribucionPrioridad,
       rendimientoMensual,
       ultimoRendimiento,
-      totalComentarios: data.comentarios.length
+      totalComentarios: data.comentarios.length,
+      salarioCalculado,
+      salarioBase,
+      porcentajeCumplimiento
     };
-  }, [data]);
+  }, [data, userData]);
 
   if (loading) {
-    return <LoadingSkeleton />;
+    return <LoadingState />;
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6 animate-fade-in ">
       {/* Header */}
-      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-white dark:bg-slate-800 rounded-xl p-4 md:p-6 shadow-sm border border-slate-200 dark:border-slate-700">
-        <div>
-          <h2 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2 md:gap-3">
-            <Activity size={20} className="text-slate-600 dark:text-slate-400 md:w-6 md:h-6" />
-            Mi Panel de Control
-          </h2>
-          <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
-            Bienvenido, <span className="font-semibold text-slate-700 dark:text-slate-300">{profile?.nombre_completo}</span>
-          </p>
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4
+                bg-white dark:bg-slate-800
+                rounded-2xl p-4 md:p-6
+                shadow-sm border border-slate-200 dark:border-slate-700">
+
+        {/* TÍTULO */}
+        <div className="flex items-center gap-3">
+          <div className="p-3 sm:p-4 bg-linear-to-br from-indigo-400 to-blue-800
+                    rounded-2xl shadow-lg shadow-indigo-500/30 shrink-0">
+            <Activity className="h-6 w-6 sm:h-8 sm:w-8 text-white" />
+          </div>
+
+          <div>
+            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold
+                     bg-linear-to-r from-indigo-600 to-blue-800
+                     bg-clip-text text-transparent">
+              Mi Panel de Control
+            </h2>
+          </div>
         </div>
-        <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-700 rounded-lg px-3 py-2 w-full lg:w-auto">
+
+        {/* FILTRO FECHAS */}
+        <div className="flex items-center gap-2
+                  bg-slate-50 dark:bg-slate-700
+                  rounded-xl px-4 py-2
+                  border border-slate-200 dark:border-slate-600
+                  shadow-sm w-full lg:w-auto">
           <Calendar size={16} className="text-slate-400" />
+
           <input
             type="date"
             value={startDate}
             onChange={(e) => setStartDate(e.target.value)}
-            className="border-none bg-transparent focus:ring-0 text-sm w-32"
-            placeholder="Inicio"
+            className="border-none bg-transparent focus:ring-0 text-sm w-32 text-slate-600 dark:text-slate-200"
           />
-          <span className="text-slate-400">-</span>
+
+          <span className="text-slate-400">—</span>
+
           <input
             type="date"
             value={endDate}
             onChange={(e) => setEndDate(e.target.value)}
-            className="border-none bg-transparent focus:ring-0 text-sm w-32"
-            placeholder="Fin"
+            className="border-none bg-transparent focus:ring-0 text-sm w-32 text-slate-600 dark:text-slate-200"
           />
         </div>
       </div>
 
+
       {/* KPIs Usuario - Diseño profesional */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-        <StatCard
-          title="Mi Rendimiento"
-          value={analytics.ultimoRendimiento ? `${analytics.ultimoRendimiento.porcentaje_rendimiento.toFixed(1)}%` : 'N/A'}
-          icon={Award}
-          subtext={analytics.ultimoRendimiento ? `Bono: ${formatCurrency(analytics.ultimoRendimiento.bono_rendimiento || 0)}` : 'Sin datos aún'}
-        />
+        {/* Helper para formatear dinero */}
+        {(() => {
+          const formatMoney = (amount: number) =>
+            new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
+
+          return (
+            <StatCard
+              title="Sueldo Proyectado"
+              // Muestra el Salario Calculado. Ej: $400.00
+              value={formatMoney(analytics.salarioCalculado)}
+              icon={Award}
+              // El subtexto explica la matemática
+              subtext={
+                analytics.total > 0
+                  ? `${(analytics.porcentajeCumplimiento * 100).toFixed(0)}% del salario base (${formatMoney(analytics.salarioBase)})`
+                  : `Sin vencimientos este mes`
+              }
+              // Color semántico: Rojo si < 50%, Amarillo si < 100%, Verde si 100%
+              color={
+                analytics.porcentajeCumplimiento < 0.5 ? "red" :
+                  analytics.porcentajeCumplimiento < 1 ? "yellow" : "green"
+              }
+            />
+          );
+        })()}
 
         <StatCard
           title="Tareas Activas"
@@ -1415,7 +1611,7 @@ const UserView = () => {
             <div>
               <p className="text-sm text-slate-600 dark:text-slate-400 mb-1">Total Tareas</p>
               <h4 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white">{analytics.total}</h4>
-              <p className="text-xs text-slate-500 mt-1">Asignadas y creadas</p>
+              <p className="text-xs text-slate-500 mt-1">Vencen este periodo</p>
             </div>
             <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-700">
               <FileText size={20} className="text-slate-600 dark:text-slate-400" />
@@ -1585,7 +1781,7 @@ const UserView = () => {
             <BarChart2 size={18} className="text-slate-600 dark:text-slate-400" />
             <div>
               <h5 className="text-lg font-bold text-slate-900 dark:text-white">Evolución de Mi Rendimiento</h5>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Análisis compuesto de rendimiento y bonos</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Análisis de rendimiento mensual</p>
             </div>
           </div>
           <PerformanceChart
@@ -1596,11 +1792,10 @@ const UserView = () => {
             colors={['#3730A3', '#065F46']}
             enable3D
             animationDuration={2100}
-            dataKeys={['rendimiento', 'bono']}
-            showLegend
+            dataKeys={['rendimiento']}
+            showLegend={false}
             tooltipFormatter={(value, name) => {
               if (name === 'rendimiento') return [`${value}%`, 'Rendimiento'];
-              if (name === 'bono') return [formatCurrency(value), 'Bono'];
               return [value, name];
             }}
             tickFormatter={(value) => {

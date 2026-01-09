@@ -1,13 +1,10 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { FilePond, registerPlugin } from 'react-filepond';
-// Estilos de FilePond
 import 'filepond/dist/filepond.min.css';
 import 'filepond-plugin-image-preview/dist/filepond-plugin-image-preview.css';
-// Plugins de FilePond
 import FilePondPluginImagePreview from 'filepond-plugin-image-preview';
 import FilePondPluginFileValidateType from 'filepond-plugin-file-validate-type';
 
-// Registrar los plugins
 registerPlugin(FilePondPluginImagePreview, FilePondPluginFileValidateType);
 import { createPortal } from 'react-dom';
 import { supabase } from '../supabaseClient';
@@ -17,9 +14,9 @@ import {
     Layout, List, BarChart3, Filter, ChevronDown, ChevronUp,
     User as UserIcon, X, FileText, Edit2, Trash2, Eye,
     CheckCircle, AlertCircle, XCircle, Users,
-    Bell, Star,
-
-    RefreshCw, Save, Clock
+    Bell, Target,
+    RefreshCw, Save, Clock, Calendar,
+    Info
 } from 'lucide-react';
 import Swal from 'sweetalert2';
 import withReactContent from 'sweetalert2-react-content';
@@ -45,7 +42,6 @@ interface Tarea {
     creador_id: string;
     created_at: string;
     updated_at: string;
-    // Relaciones
     asignado?: { nombre_completo: string, avatar_url: string | null, email: string };
     prioridad?: { nombre: string, color: string, nivel: number };
     estado?: { nombre: string, color: string };
@@ -56,7 +52,7 @@ interface Tarea {
     historial_estados?: HistorialEstado[];
     adjuntos_count?: number;
     comentarios_count?: number;
-    colaboradores?: { usuario_id: string, usuario: { nombre_completo: string, avatar_url: string | null } }[]; // Nuevo campo
+    colaboradores?: { usuario_id: string, usuario: { nombre_completo: string, avatar_url: string | null } }[];
 }
 
 interface Adjunto {
@@ -139,7 +135,6 @@ interface TempAttachment {
 }
 
 // --- COMPONENTES VISUALES AVANZADOS ---
-// Componente de Notificaciones Toast
 const Toast = ({ message, type, onClose }: { message: string, type: 'success' | 'error' | 'warning' | 'info', onClose: () => void }) => {
     useEffect(() => {
         const timer = setTimeout(onClose, 5000);
@@ -147,21 +142,21 @@ const Toast = ({ message, type, onClose }: { message: string, type: 'success' | 
     }, [onClose]);
 
     const toastConfig = {
-        success: { icon: CheckCircle, color: 'text-green-500', style: 'border-green-100 shadow-green-500/10' },
-        error: { icon: XCircle, color: 'text-red-500', style: 'border-red-100 shadow-red-500/10' },
-        warning: { icon: AlertCircle, color: 'text-amber-500', style: 'border-amber-100 shadow-amber-500/10' },
-        info: { icon: Bell, color: 'text-blue-500', style: 'border-blue-100 shadow-blue-500/10' },
+        success: { icon: CheckCircle, color: 'text-green-500', style: 'border-green-100 dark:border-green-900/30 bg-white dark:bg-slate-800' },
+        error: { icon: XCircle, color: 'text-red-500', style: 'border-red-100 dark:border-red-900/30 bg-white dark:bg-slate-800' },
+        warning: { icon: AlertCircle, color: 'text-amber-500', style: 'border-amber-100 dark:border-amber-900/30 bg-white dark:bg-slate-800' },
+        info: { icon: Bell, color: 'text-blue-500', style: 'border-blue-100 dark:border-blue-900/30 bg-white dark:bg-slate-800' },
     }[type];
 
     const Icon = toastConfig.icon;
 
     return (
-        <div className={`flex items-center gap-3 p-4 rounded-xl border bg-white/95 backdrop-blur-sm shadow-lg ${toastConfig.style} animate-slide-in-right max-w-sm w-full`}>
+        <div className={`flex items-center gap-3 p-4 rounded-xl border bg-white/95 dark:bg-slate-800 backdrop-blur-sm shadow-lg ${toastConfig.style} animate-slide-in-right max-w-sm w-full`}>
             <Icon className={toastConfig.color} size={20} />
-            <span className="text-sm font-medium text-slate-700 flex-1">{message}</span>
+            <span className="text-sm font-medium text-slate-700 dark:text-slate-300 flex-1">{message}</span>
             <button
                 onClick={onClose}
-                className="text-slate-400 hover:text-slate-600 p-1 hover:bg-slate-100 rounded-lg transition-colors"
+                className="text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
             >
                 <X size={16} />
             </button>
@@ -169,63 +164,53 @@ const Toast = ({ message, type, onClose }: { message: string, type: 'success' | 
     );
 };
 
-// 1. Para leer desde la Base de Datos (o edición):
-// Simplemente cortamos el string. Si viene "2025-12-26T00:00:00", tomamos los primeros 10 caracteres.
 const parseDateString = (dateStr?: string | null) => {
     if (!dateStr) return '';
-    // Tomamos estrictamente la parte de la fecha calendario YYYY-MM-DD
     return dateStr.substring(0, 10);
 };
 
-// 2. Para generar la fecha de "Hoy" o futuros días en TU hora local (Ecuador):
-// Construimos el string manualmente para evitar que toISOString() convierta a UTC.
 const getLocalISOString = (daysToAdd = 0) => {
     const date = new Date();
-    // Sumar días si es necesario
     if (daysToAdd !== 0) {
         date.setDate(date.getDate() + daysToAdd);
     }
-
     const year = date.getFullYear();
-    // getMonth() devuelve 0-11, así que sumamos 1. padStart asegura que sea '01' en vez de '1'
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
-
     return `${year}-${month}-${day}`;
 };
 
-// Función para mostrar fecha CORTA (ej: 26 dic) forzando UTC
 const formatShortDate = (dateStr?: string | null) => {
     if (!dateStr) return '';
     return new Date(dateStr).toLocaleDateString('es-EC', {
-        timeZone: 'UTC', // <--- LA CLAVE: Forzar UTC
+        timeZone: 'UTC',
         day: 'numeric',
         month: 'short'
     });
 };
 
-// Función para mostrar fecha LARGA (ej: 26/12/2025) forzando UTC
 const formatFullDate = (dateStr?: string | null) => {
     if (!dateStr) return '';
     return new Date(dateStr).toLocaleDateString('es-EC', {
-        timeZone: 'UTC', // <--- LA CLAVE: Forzar UTC
+        timeZone: 'UTC',
         day: '2-digit',
         month: '2-digit',
         year: 'numeric'
     });
 };
 
-// Badge de Prioridad Mejorado
 const PriorityBadge = ({ nombre, color, level }: { nombre: string, color: string, level?: number }) => {
     const getIntensity = () => {
         switch (nombre.toLowerCase()) {
-            case 'urgente': return 'bg-red-50 text-red-700 ring-1 ring-red-600/20';
-            case 'alta': return 'bg-orange-50 text-orange-700 ring-1 ring-orange-600/20';
-            case 'media': return 'bg-yellow-50 text-yellow-700 ring-1 ring-yellow-600/20';
-            case 'baja': return 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600/20';
-            default: return 'bg-slate-50 text-slate-700 ring-1 ring-slate-600/20';
+            case 'urgente': return 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 ring-1 ring-red-600/20 dark:ring-red-500/30';
+            case 'alta': return 'bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 ring-1 ring-orange-600/20 dark:ring-orange-500/30';
+            case 'media': return 'bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400 ring-1 ring-yellow-600/20 dark:ring-yellow-500/30';
+            case 'baja': return 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 ring-1 ring-emerald-600/20 dark:ring-emerald-500/30';
+            default: return 'bg-slate-50 dark:bg-slate-700 text-slate-700 dark:text-slate-300 ring-1 ring-slate-600/20 dark:ring-slate-600/40';
         }
     };
+
+
 
     return (
         <div className="relative group">
@@ -237,7 +222,6 @@ const PriorityBadge = ({ nombre, color, level }: { nombre: string, color: string
     );
 };
 
-// Avatar Mejorado
 const UserAvatar = ({ url, name, size = "sm", showTooltip = true }: {
     url?: string | null,
     name: string,
@@ -254,29 +238,28 @@ const UserAvatar = ({ url, name, size = "sm", showTooltip = true }: {
     const initials = name ? name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2) : '??';
 
     return (
-        <div className={`relative group ${showTooltip ? '' : ''}`}>
+        <div className={`relative group`}>
             {url ? (
                 <img
                     src={url}
                     alt={name}
-                    className={`${sizeClasses[size]} rounded-full object-cover ring-2 ring-white shadow-sm transition-all duration-200 group-hover:ring-indigo-400 group-hover:scale-105`}
+                    className={`${sizeClasses[size]} rounded-full object-cover ring-2 ring-white dark:ring-slate-800 shadow-sm transition-all duration-200 group-hover:ring-indigo-400 group-hover:scale-105`}
                 />
             ) : (
-                <div className={`${sizeClasses[size]} rounded-full bg-linear-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white font-bold ring-2 ring-white shadow-sm transition-all duration-200 group-hover:ring-indigo-400 group-hover:scale-105`}>
+                <div className={`${sizeClasses[size]} rounded-full bg-linear-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white font-bold ring-2 ring-white dark:ring-slate-800 shadow-sm transition-all duration-200 group-hover:ring-indigo-400 group-hover:scale-105`}>
                     {initials}
                 </div>
             )}
             {showTooltip && (
-                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 text-white text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 shadow-lg pointer-events-none">
+                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-slate-800 dark:bg-slate-700 text-white text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50 shadow-lg pointer-events-none">
                     {name}
-                    <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-slate-800"></div>
+                    <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-slate-800 dark:border-t-slate-700"></div>
                 </div>
             )}
         </div>
     );
 };
 
-// Selector Personalizado
 const CustomSelector = ({
     options,
     value,
@@ -286,7 +269,7 @@ const CustomSelector = ({
     icon: Icon,
     searchable = true,
     multiple = false,
-    disabled = false, // <--- NUEVA PROPIEDAD
+    disabled = false,
     className = "",
     getDisplayValue = (option: any) => option.nombre || option.nombre_completo,
     getSearchValue = (option: any) => option.nombre || option.nombre_completo,
@@ -300,7 +283,7 @@ const CustomSelector = ({
     icon: any;
     searchable?: boolean;
     multiple?: boolean;
-    disabled?: boolean; // <--- TIPO NUEVA PROPIEDAD
+    disabled?: boolean;
     className?: string;
     getDisplayValue?: (option: any) => string;
     getSearchValue?: (option: any) => string;
@@ -311,7 +294,6 @@ const CustomSelector = ({
     const buttonRef = useRef<HTMLButtonElement>(null);
     const [coords, setCoords] = useState({ left: 0, top: 0, width: 0, maxHeight: 300 });
 
-    // ... (lógica de filteredOptions, selectedValues, handleSelect, etc. se mantiene igual)
     const filteredOptions = useMemo(() => {
         if (!searchTerm) return options;
         return options.filter(option => getSearchValue(option).toLowerCase().includes(searchTerm.toLowerCase()));
@@ -336,7 +318,6 @@ const CustomSelector = ({
         return getDisplayValue(selectedOptions[0]);
     };
 
-    // ... (lógica de posicionamiento y useEffects se mantiene igual)
     const updatePosition = () => {
         if (buttonRef.current) {
             const rect = buttonRef.current.getBoundingClientRect();
@@ -376,14 +357,16 @@ const CustomSelector = ({
                 }
             }
         };
+
+
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, [isOpen, label, placeholder]);
 
     return (
-        <div className={`relative ${className} ${disabled ? 'opacity-60 pointer-events-none' : ''}`}> {/* Estilo visual para disabled */}
+        <div className={`relative ${className} ${disabled ? 'opacity-60 pointer-events-none' : ''}`}>
             {label && (
-                <label className="block text-xs font-bold uppercase text-slate-500 mb-1.5 ml-1">
+                <label className="block text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1.5 ml-1">
                     {label}
                 </label>
             )}
@@ -391,31 +374,30 @@ const CustomSelector = ({
             <button
                 ref={buttonRef}
                 type="button"
-                disabled={disabled} // Bloqueo funcional
+                disabled={disabled}
                 onClick={() => !disabled && setIsOpen(!isOpen)}
-                className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl border bg-white text-left transition-all duration-200 
-                    ${isOpen ? 'border-indigo-500 ring-2 ring-indigo-500/10 shadow-lg' : 'border-slate-200'}
-                    ${!disabled && 'hover:border-slate-300 hover:bg-slate-50/50'}
+                className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl border bg-white dark:bg-slate-800 text-left transition-all duration-200 
+                    ${isOpen ? 'border-indigo-500 ring-2 ring-indigo-500/10 shadow-lg dark:ring-indigo-500/20' : 'border-slate-200 dark:border-slate-700'}
+                    ${!disabled && 'hover:border-slate-300 dark:hover:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700/50'}
                 `}
             >
                 <div className="flex items-center gap-3 overflow-hidden">
                     {Icon && (
-                        <div className={`flex shrink-0 items-center justify-center h-8 w-8 rounded-lg ${selectedOptions.length > 0 ? 'bg-indigo-50 text-indigo-600' : 'bg-slate-100 text-slate-400'}`}>
+                        <div className={`flex shrink-0 items-center justify-center h-8 w-8 rounded-lg ${selectedOptions.length > 0 ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400' : 'bg-slate-100 dark:bg-slate-700 text-slate-400 dark:text-slate-500'}`}>
                             <Icon size={16} />
                         </div>
                     )}
-                    <span className={`text-sm truncate ${selectedOptions.length > 0 ? 'text-slate-700 font-medium' : 'text-slate-400'}`}>
+                    <span className={`text-sm truncate ${selectedOptions.length > 0 ? 'text-slate-700 dark:text-slate-200 font-medium' : 'text-slate-400 dark:text-slate-500'}`}>
                         {getDisplayText()}
                     </span>
                 </div>
-                {/* Ocultamos el chevron si está deshabilitado para que parezca más "solo lectura" */}
-                {!disabled && (isOpen ? <ChevronUp size={16} className="text-indigo-500 shrink-0 ml-2" /> : <ChevronDown size={16} className="text-slate-400 shrink-0 ml-2" />)}
+                {!disabled && (isOpen ? <ChevronUp size={16} className="text-indigo-500 shrink-0 ml-2" /> : <ChevronDown size={16} className="text-slate-400 dark:text-slate-500 shrink-0 ml-2" />)}
             </button>
 
             {isOpen && !disabled && createPortal(
                 <div
                     id={`dropdown-${label || placeholder}`}
-                    className="absolute bg-white rounded-xl shadow-xl border border-slate-100 overflow-hidden animation-fade-in-down z-9999 flex flex-col"
+                    className="absolute bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-100 dark:border-slate-700 overflow-hidden animation-fade-in-down z-9999 flex flex-col"
                     style={{
                         left: coords.left,
                         top: coords.top,
@@ -424,15 +406,14 @@ const CustomSelector = ({
                         maxHeight: coords.maxHeight
                     }}
                 >
-                    {/* ... (contenido del dropdown se mantiene igual) ... */}
                     {searchable && (
-                        <div className="p-2 border-b border-slate-100 bg-slate-50/50 shrink-0">
+                        <div className="p-2 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 shrink-0">
                             <div className="relative">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 dark:text-slate-500" />
                                 <input
                                     type="text"
                                     autoFocus
-                                    className="w-full pl-9 pr-3 py-1.5 text-sm rounded-lg border-none bg-white focus:ring-2 focus:ring-indigo-500 placeholder-slate-400"
+                                    className="w-full pl-9 pr-3 py-1.5 text-sm rounded-lg border-none bg-white dark:bg-slate-700 focus:ring-2 focus:ring-indigo-500 placeholder-slate-400 dark:placeholder-slate-500 text-slate-800 dark:text-slate-200"
                                     placeholder="Buscar..."
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
@@ -441,9 +422,9 @@ const CustomSelector = ({
                         </div>
                     )}
 
-                    <div className="overflow-y-auto scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent flex-1">
+                    <div className="overflow-y-auto scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-600 scrollbar-track-transparent flex-1">
                         {filteredOptions.length === 0 ? (
-                            <div className="p-4 text-center text-slate-400 text-sm">No se encontraron opciones</div>
+                            <div className="p-4 text-center text-slate-400 dark:text-slate-500 text-sm">No se encontraron opciones</div>
                         ) : (
                             filteredOptions.map((option) => {
                                 const isSelected = selectedValues.includes(option.id);
@@ -451,22 +432,22 @@ const CustomSelector = ({
                                     <div
                                         key={option.id}
                                         onClick={() => handleSelect(option.id)}
-                                        className={`flex items-center gap-3 px-4 py-2.5 cursor-pointer transition-colors ${isSelected ? 'bg-indigo-50 text-indigo-700' : 'hover:bg-slate-50 text-slate-700'}`}
+                                        className={`flex items-center gap-3 px-4 py-2.5 cursor-pointer transition-colors ${isSelected ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300' : 'hover:bg-slate-50 dark:hover:bg-slate-700/50 text-slate-700 dark:text-slate-300'}`}
                                     >
                                         {getAvatar(option) ? (
                                             <div className="shrink-0">
                                                 <UserAvatar url={getAvatar(option)} name={getDisplayValue(option)} size="sm" showTooltip={false} />
                                             </div>
                                         ) : (
-                                            <div className={`h-6 w-6 shrink-0 rounded-full flex items-center justify-center text-[10px] font-bold text-white ${isSelected ? 'bg-indigo-500' : 'bg-slate-300'}`}>
+                                            <div className={`h-6 w-6 shrink-0 rounded-full flex items-center justify-center text-[10px] font-bold text-white ${isSelected ? 'bg-indigo-500' : 'bg-slate-300 dark:bg-slate-600'}`}>
                                                 {getDisplayValue(option).substring(0, 2).toUpperCase()}
                                             </div>
                                         )}
                                         <div className="flex-1 min-w-0">
                                             <div className="font-medium text-sm truncate">{getDisplayValue(option)}</div>
-                                            {option.email && <div className="text-xs text-slate-400 truncate">{option.email}</div>}
+                                            {option.email && <div className="text-xs text-slate-400 dark:text-slate-500 truncate">{option.email}</div>}
                                         </div>
-                                        {isSelected && <CheckCircle size={16} className="text-indigo-600 shrink-0" />}
+                                        {isSelected && <CheckCircle size={16} className="text-indigo-600 dark:text-indigo-400 shrink-0" />}
                                     </div>
                                 );
                             })
@@ -479,7 +460,6 @@ const CustomSelector = ({
     );
 };
 
-// --- HOOK REUTILIZABLE PARA TOOLTIPS ---
 const useTaskTooltip = () => {
     const [tooltipData, setTooltipData] = useState<{ x: number; y: number; days: number; title: string } | null>(null);
 
@@ -488,7 +468,7 @@ const useTaskTooltip = () => {
         const daysLeft = Math.ceil((new Date(tarea.fecha_fin).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
 
         setTooltipData({
-            x: rect.left + (rect.width / 2), // Centrado
+            x: rect.left + (rect.width / 2),
             y: rect.top,
             days: daysLeft,
             title: tarea.titulo
@@ -497,18 +477,17 @@ const useTaskTooltip = () => {
 
     const handleMouseLeave = () => setTooltipData(null);
 
-    // Componente que renderiza el portal automáticamente
     const TooltipComponent = () => (
         tooltipData ? createPortal(
             <div className="fixed z-9999 pointer-events-none flex flex-col items-center animate-fade-in"
                 style={{ left: tooltipData.x, top: tooltipData.y - 10, transform: 'translate(-50%, -100%)' }}>
-                <div className="bg-slate-800 text-white text-xs rounded px-2 py-1 whitespace-nowrap shadow-xl flex flex-col items-center">
+                <div className="bg-slate-800 dark:bg-slate-900 text-white text-xs rounded px-2 py-1 whitespace-nowrap shadow-xl flex flex-col items-center border border-slate-700">
                     <span className="font-bold mb-0.5">{tooltipData.title}</span>
                     <span className={`${tooltipData.days < 0 ? 'text-red-300' : 'text-emerald-300'}`}>
                         {tooltipData.days < 0 ? `Venció hace ${Math.abs(tooltipData.days)} días` : `Vence en: ${tooltipData.days} días`}
                     </span>
                 </div>
-                <div className="w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[6px] border-t-slate-800"></div>
+                <div className="w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[6px] border-t-slate-800 dark:border-t-slate-900"></div>
             </div>, document.body
         ) : null
     );
@@ -517,17 +496,13 @@ const useTaskTooltip = () => {
 };
 
 
-// Componente Principal
 export default function TareasAvanzadas() {
     const { profile } = useAuth();
-
-    // Estados principales
     const [viewMode, setViewMode] = useState<'kanban' | 'list' | 'timeline'>('kanban');
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [toasts, setToasts] = useState<Array<{ id: string, message: string, type: 'success' | 'error' | 'warning' | 'info' }>>([]);
 
-    // Datos
     const [tareas, setTareas] = useState<Tarea[]>([]);
     const [estados, setEstados] = useState<Catalogo[]>([]);
     const [prioridades, setPrioridades] = useState<Catalogo[]>([]);
@@ -537,17 +512,17 @@ export default function TareasAvanzadas() {
     const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
     const [editingCommentText, setEditingCommentText] = useState('');
 
-    // Filtros avanzados
     const [searchTerm, setSearchTerm] = useState('');
     const [filterEstado, setFilterEstado] = useState('all');
     const [filterPrioridad, setFilterPrioridad] = useState('all');
     const [filterUsuario, setFilterUsuario] = useState('all');
     const [filterDepartamento] = useState('all');
     const [filterFecha, setFilterFecha] = useState('all');
+    const [startDate, setStartDate] = useState('');
+    const [endDate, setEndDate] = useState('');
     const [sortBy, setSortBy] = useState('created_at');
     const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
-    // Modal y edición
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingTask, setEditingTask] = useState<Tarea | null>(null);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
@@ -557,29 +532,38 @@ export default function TareasAvanzadas() {
     const FilePondComponent = FilePond as any;
     const MySwal = withReactContent(Swal);
 
-    // Estados para el COMENTARIO
     const [newCommentText, setNewCommentText] = useState('');
-    const [commentFiles, setCommentFiles] = useState<any[]>([]); // Visual FilePond Comentarios
-    const [tempCommentAttachments, setTempCommentAttachments] = useState<TempAttachment[]>([]); // Datos FilePond Comentarios
+    const [commentFiles, setCommentFiles] = useState<any[]>([]);
+    const [tempCommentAttachments, setTempCommentAttachments] = useState<TempAttachment[]>([]);
     const [isSubmittingComment, setIsSubmittingComment] = useState(false);
+    const [motivoModal, setMotivoModal] = useState<{
+        isOpen: boolean;
+        taskId: string;
+        nuevoEstadoId: string;
+        nombreEstado: string;
+        tipo: 'rechazo' | 'bloqueo';
+    }>({
+        isOpen: false,
+        taskId: '',
+        nuevoEstadoId: '',
+        nombreEstado: '',
+        tipo: 'rechazo'
+    });
+    const [motivoTexto, setMotivoTexto] = useState('');
 
-    // Estado del formulario
     const [newTask, setNewTask] = useState({
         titulo: '',
         descripcion: '',
         prioridad_id: '',
         asignado_a: '',
         colaboradores: [] as string[],
-        // AQUÍ EL CAMBIO: Usamos la nueva función para obtener la fecha local exacta
-        fecha_inicio: getLocalISOString(0), // 0 días = Hoy
-        fecha_fin: getLocalISOString(2),    // 2 días = Pasado mañana
+        fecha_inicio: getLocalISOString(0),
+        fecha_fin: getLocalISOString(2),
         departamento_id: '',
     });
 
     useEffect(() => {
         if (editingTask) {
-            // --- MODO EDICIÓN ---
-            // Obtenemos datos derivados
             const assignedUser = usuariosParaAsignar.find(u => u.id === editingTask.asignado_a);
             const derivedDeptId = assignedUser?.departamento_id || editingTask.departamento_id || '';
 
@@ -588,32 +572,28 @@ export default function TareasAvanzadas() {
                 descripcion: editingTask.descripcion || '',
                 prioridad_id: editingTask.prioridad_id || '',
                 asignado_a: editingTask.asignado_a || '',
-
-                // CORRECCIÓN: Tratamos la fecha como texto plano. 
-                // Cortamos los primeros 10 caracteres y listo.
                 fecha_inicio: parseDateString(editingTask.fecha_inicio),
                 fecha_fin: parseDateString(editingTask.fecha_fin),
-                colaboradores: editingTask.colaboradores?.map(c => c.usuario_id) || [], // Cargar IDs
+                colaboradores: editingTask.colaboradores?.map(c => c.usuario_id) || [],
                 departamento_id: derivedDeptId
             });
         } else {
-            // --- MODO CREAR NUEVA ---
+            // Para usuarios normales, la tarea se asigna a sí mismos por defecto
+            const defaultAsignado = profile?.rol_nombre === 'Usuario' ? profile.id : '';
 
             setNewTask({
                 titulo: '',
                 descripcion: '',
                 prioridad_id: '',
-                asignado_a: '',
-                // CORRECCIÓN: Generamos el string YYYY-MM-DD basado en tu hora local de PC
-                fecha_inicio: getLocalISOString(0), // Hoy
-                fecha_fin: getLocalISOString(2),    // Hoy + 2 días
+                asignado_a: defaultAsignado,
+                fecha_inicio: getLocalISOString(0),
+                fecha_fin: getLocalISOString(2),
                 departamento_id: profile?.departamento_id || '',
                 colaboradores: [],
             });
         }
     }, [editingTask, profile, usuariosParaAsignar]);
 
-    // Funciones auxiliares
     const addToast = (message: string, type: 'success' | 'error' | 'warning' | 'info') => {
         const id = Math.random().toString(36).substr(2, 9);
         setToasts(prev => [...prev, { id, message, type }]);
@@ -627,7 +607,6 @@ export default function TareasAvanzadas() {
         return name ? name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2) : '??';
     };
 
-    // Efectos
     useEffect(() => {
         if (profile) fetchData();
     }, [profile]);
@@ -635,7 +614,6 @@ export default function TareasAvanzadas() {
     const fetchData = async () => {
         setLoading(true);
         try {
-            // Cargar catálogos en paralelo
             const [resEstados, resPrioridades, resDepartamentos] = await Promise.all([
                 supabase.from('estados_tarea').select('*').order('nombre'),
                 supabase.from('prioridades').select('*').order('nivel', { ascending: false }),
@@ -649,14 +627,15 @@ export default function TareasAvanzadas() {
                 setDepartamentos(resDepartamentos.data as unknown as Departamento[]);
             }
 
-            // Cargar usuarios para asignar
-            if (['Admin', 'Manager'].includes(profile?.rol_nombre || '')) {
+            // 1. Agregamos "profile &&" al inicio para asegurar que el usuario existe
+            if (profile && ['Admin', 'Manager', 'Usuario'].includes(profile.rol_nombre || '')) {
                 let userQuery = supabase
                     .from('usuarios')
                     .select('id, nombre_completo, avatar_url, email, departamento_id, roles(nombre)')
                     .eq('activo', true);
 
-                if (profile?.rol_nombre === 'Manager' && profile.departamento_id) {
+                // 2. Aquí TypeScript ya sabe que 'profile' no es null gracias al if anterior
+                if (['Manager', 'Usuario'].includes(profile.rol_nombre || '') && profile.departamento_id) {
                     userQuery = userQuery.eq('departamento_id', profile.departamento_id);
                 }
 
@@ -673,7 +652,6 @@ export default function TareasAvanzadas() {
                 setUsuariosParaAsignar(usersWithRole);
             }
 
-            // Cargar notificaciones
             if (profile) {
                 const { data: notifData } = await supabase
                     .from('notificaciones')
@@ -719,7 +697,6 @@ export default function TareasAvanzadas() {
             `)
                 .order(sortBy, { ascending: sortOrder === 'asc' });
 
-            // Solo aplicamos filtro extra para Manager (opcional, para enfocar su vista)
             if (profile?.rol_nombre === 'Manager') {
                 if (profile.departamento_id) {
                     query = query.eq('departamento_id', profile.departamento_id);
@@ -744,14 +721,12 @@ export default function TareasAvanzadas() {
                 })
             );
 
-            // Filtrado Final en Memoria (Esto está bien, se mantiene para reforzar la UI)
             let finalTareas = tareasWithCounts;
 
             if (profile?.rol_nombre === 'Usuario') {
                 finalTareas = tareasWithCounts.filter(t =>
                     t.asignado_a === profile.id ||
                     t.creador_id === profile.id ||
-                    // Verifica si su ID está en la lista de colaboradores descargada
                     (t.colaboradores && t.colaboradores.some((c: any) => c.usuario_id === profile.id))
                 );
             }
@@ -766,36 +741,33 @@ export default function TareasAvanzadas() {
     const handleSaveTask = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
-            // --- VALIDACIÓN DE SEGURIDAD FRONTEND ---
             let asignadoFinal = newTask.asignado_a || null;
+            let departamentoFinal = newTask.departamento_id || profile?.departamento_id || null;
 
-            // Si es usuario, forzamos la asignación a sí mismo para cumplir la regla SQL
+            // Para usuarios normales, la tarea siempre se asigna a sí mismos
             if (profile?.rol_nombre === 'Usuario') {
                 asignadoFinal = profile.id;
             }
-            // 1. Preparamos los datos de la TAREA (sin archivos_json)
+
             const taskData = {
                 titulo: newTask.titulo,
                 descripcion: newTask.descripcion,
                 prioridad_id: newTask.prioridad_id,
-                asignado_a: newTask.asignado_a || null,
+                asignado_a: asignadoFinal,
                 fecha_inicio: newTask.fecha_inicio,
                 fecha_fin: newTask.fecha_fin,
-                departamento_id: newTask.departamento_id || profile?.departamento_id || null,
+                departamento_id: departamentoFinal,
                 creador_id: editingTask ? editingTask.creador_id : profile?.id,
-                // Quitamos archivos_json
             };
 
             let tareaId = editingTask?.id;
 
-            // 2. Insertamos o Actualizamos la TAREA
             if (editingTask) {
                 const { error } = await supabase.from('tareas')
                     .update({ ...taskData, updated_at: new Date().toISOString() })
                     .eq('id', editingTask.id);
                 if (error) throw error;
             } else {
-                // Es IMPORTANTE usar .select().single() para obtener el ID de la nueva tarea
                 const defaultState = estados.find(e => e.nombre === 'Nueva')?.id || estados[0]?.id;
                 const { data: newTarea, error } = await supabase.from('tareas')
                     .insert({ ...taskData, estado_id: defaultState })
@@ -807,10 +779,7 @@ export default function TareasAvanzadas() {
             }
 
             if (tareaId) {
-                // A. Borrar colaboradores existentes para evitar duplicados/complejidad
                 await supabase.from('tarea_colaboradores').delete().eq('tarea_id', tareaId);
-
-                // B. Insertar los nuevos seleccionados
                 if (newTask.colaboradores.length > 0) {
                     const colaboradoresData = newTask.colaboradores.map(uid => ({
                         tarea_id: tareaId,
@@ -820,13 +789,12 @@ export default function TareasAvanzadas() {
                 }
             }
 
-            // 3. Insertamos los ADJUNTOS en la tabla (Si hay nuevos)
             if (tempAttachments.length > 0 && tareaId) {
                 const attachmentsToInsert = tempAttachments.map(file => ({
                     tarea_id: tareaId,
-                    subido_por: profile?.id, // Tu tabla requiere este campo
+                    subido_por: profile?.id,
                     nombre_archivo: file.name,
-                    url_archivo: file.path, // Guardamos el path del storage
+                    url_archivo: file.path,
                     tipo_mime: file.type,
                     tamano_bytes: file.size
                 }));
@@ -839,12 +807,10 @@ export default function TareasAvanzadas() {
             }
 
             addToast("Guardado exitosamente", "success");
-
-            // Limpieza
             setIsModalOpen(false);
             setEditingTask(null);
-            setTempAttachments([]); // Limpiamos estado
-            setFiles([]); // Limpiamos UI FilePond
+            setTempAttachments([]);
+            setFiles([]);
             await fetchTareas();
 
         } catch (error) {
@@ -853,32 +819,73 @@ export default function TareasAvanzadas() {
         }
     };
 
-    const handleUpdateTaskStatus = async (taskId: string, newStatusId: string) => {
+    const handleUpdateTaskStatus = async (taskId: string, newStatusId: string, motivo?: string) => {
         try {
             const task = tareas.find(t => t.id === taskId);
             const newStatusObj = estados.find(e => e.id === newStatusId);
-
             if (!task || !newStatusObj) return;
 
-            // 1. Actualizar en Supabase
+            // Si es rechazo o bloqueo, verificar que se proporcionó motivo
+            if ((newStatusObj.nombre === 'Rechazada' || newStatusObj.nombre === 'Bloqueada') && !motivo) {
+                setMotivoModal({
+                    isOpen: true,
+                    taskId,
+                    nuevoEstadoId: newStatusId,
+                    nombreEstado: newStatusObj.nombre,
+                    tipo: newStatusObj.nombre === 'Rechazada' ? 'rechazo' : 'bloqueo'
+                });
+                return;
+            }
+
+            // Prepare update data
+            // IMPORTANTE: Por defecto LIMPIAMOS los motivos anteriores al cambiar de estado
+            const updateData: any = {
+                estado_id: newStatusId,
+                updated_at: new Date().toISOString(),
+                motivo_rechazo: null, // Se limpia por defecto
+                motivo_bloqueo: null  // Se limpia por defecto
+            };
+
+            // Solo si el NUEVO estado es Rechazada o Bloqueada, guardamos el motivo
+            if (newStatusObj.nombre === 'Rechazada' && motivo) {
+                updateData.motivo_rechazo = motivo;
+            }
+            if (newStatusObj.nombre === 'Bloqueada' && motivo) {
+                updateData.motivo_bloqueo = motivo;
+            }
+
+            // Lógica de fechas completadas (se mantiene igual)
+            if (newStatusObj.nombre === 'Completada') {
+                const now = new Date();
+                updateData.fecha_completado = now.toISOString();
+                const fechaFin = new Date(task.fecha_fin);
+                const completedOnTime = now <= fechaFin;
+                updateData.completada_a_tiempo = completedOnTime;
+            } else {
+                updateData.fecha_completado = null;
+                updateData.completada_a_tiempo = null;
+            }
+
             const { error } = await supabase
                 .from('tareas')
-                .update({
-                    estado_id: newStatusId,
-                    updated_at: new Date().toISOString()
-                })
+                .update(updateData)
                 .eq('id', taskId);
 
             if (error) throw error;
 
-            // 2. REGISTROS SECUNDARIOS (Historial y Notificaciones)
-            // Usamos .then() o los dejamos correr para no retrasar la UI del usuario
-            supabase.from('historial_estados').insert({
+            // Historial (se mantiene igual)
+            const historialData: any = {
                 tarea_id: taskId,
                 estado_anterior_id: task.estado_id,
                 estado_nuevo_id: newStatusId,
                 cambiado_por: profile?.id,
-            }).then();
+            };
+
+            if (motivo && (newStatusObj.nombre === 'Rechazada' || newStatusObj.nombre === 'Bloqueada')) {
+                historialData.comentario = motivo;
+            }
+
+            supabase.from('historial_estados').insert(historialData).then();
 
             if (task.asignado_a && newStatusObj.nombre === 'Completada') {
                 supabase.from('notificaciones').insert({
@@ -890,17 +897,21 @@ export default function TareasAvanzadas() {
                 }).then();
             }
 
-            // --- PASOS DE CIERRE Y FEEDBACK ---
-
-            // 3. Mostrar el Toast inmediatamente
             addToast("Estado de tarea actualizado", "success");
-
-            // 4. CERRAR EL MODAL
-            // Dependiendo de cómo manejes tu modal, usa una de estas dos (o ambas):
-            setSelectedTaskForDetail(null); // Si el modal se abre cuando hay una tarea seleccionada
-            // setIsModalOpen(false);       // Si usas un booleano aparte
-
-            // 5. Refrescar la lista principal de fondo
+            
+            // Actualizamos la tarea seleccionada si está abierto el modal para reflejar cambios inmediatos
+            if(selectedTaskForDetail && selectedTaskForDetail.id === taskId) {
+                 // Hacemos un fetch rápido o actualizamos el estado local
+                 const updatedTaskLocal = { 
+                     ...selectedTaskForDetail, 
+                     estado_id: newStatusId, 
+                     estado: newStatusObj,
+                     motivo_rechazo: updateData.motivo_rechazo,
+                     motivo_bloqueo: updateData.motivo_bloqueo
+                 };
+                 setSelectedTaskForDetail(updatedTaskLocal as Tarea);
+            }
+            
             await fetchTareas();
 
         } catch (error) {
@@ -910,7 +921,6 @@ export default function TareasAvanzadas() {
     };
 
     const handleDeleteTask = async (taskId: string) => {
-        // Buscamos la tarea para mostrar su nombre en la alerta
         const taskToDelete = tareas.find(t => t.id === taskId);
         if (!taskToDelete) return;
 
@@ -942,20 +952,9 @@ export default function TareasAvanzadas() {
         }).then(async (result) => {
             if (result.isConfirmed) {
                 try {
-                    // 1. Eliminar archivos del storage si existen (limpieza profunda)
-                    // Nota: Esto requiere que tengas la columna archivos_json o la tabla adjuntos
-                    // Si usas la tabla adjuntos, el ON DELETE CASCADE de SQL debería encargarse, 
-                    // pero si usas el array JSON, deberías borrarlos manualmente aquí:
-                    /* if (taskToDelete.archivos_json && taskToDelete.archivos_json.length > 0) {
-                         await supabase.storage.from('adjuntos').remove(taskToDelete.archivos_json);
-                    }
-                    */
-
-                    // 2. Eliminar la tarea de la BD
                     const { error } = await supabase.from('tareas').delete().eq('id', taskId);
                     if (error) throw error;
 
-                    // 3. Feedback visual
                     MySwal.fire({
                         title: '¡Eliminada!',
                         text: 'La tarea y sus recursos han sido eliminados correctamente.',
@@ -965,7 +964,6 @@ export default function TareasAvanzadas() {
                         background: document.documentElement.classList.contains('dark') ? '#1e293b' : '#ffffff',
                     });
 
-                    // 4. Recargar datos
                     await fetchTareas();
 
                 } catch (error) {
@@ -982,38 +980,27 @@ export default function TareasAvanzadas() {
     };
 
     const handleCancelAndCleanup = async () => {
-        // 1. Verificamos si hay adjuntos temporales en el estado nuevo
         if (!editingTask && tempAttachments.length > 0) {
             try {
-                // PASO CLAVE: Extraemos solo las rutas (strings) de los objetos
                 const pathsToDelete = tempAttachments.map(file => file.path);
-
                 const { error } = await supabase.storage
                     .from('adjuntos')
-                    .remove(pathsToDelete); // Le pasamos el array de strings
-
-                if (error) {
-                    console.error("Error limpiando archivos temporales:", error);
-                } else {
-                    console.log("Archivos temporales eliminados correctamente");
-                }
+                    .remove(pathsToDelete);
+                if (error) console.error("Error limpiando archivos temporales:", error);
             } catch (error) {
                 console.error("Error de conexión al limpiar:", error);
             }
         }
-
-        // 2. Limpiamos todos los estados de la interfaz
         setIsModalOpen(false);
         setEditingTask(null);
-        setTempAttachments([]); // <--- Actualizado: Limpiamos el array de objetos
-        setFiles([]);           // Limpiamos la vista visual de FilePond
+        setTempAttachments([]);
+        setFiles([]);
     };
 
     const openTaskDetail = async (task: Tarea) => {
         setSelectedTaskForDetail(task);
         setIsDetailModalOpen(true);
 
-        // Marcar notificaciones como leídas
         if (notificaciones.some(n => n.tarea_id === task.id)) {
             await supabase
                 .from('notificaciones')
@@ -1024,8 +1011,6 @@ export default function TareasAvanzadas() {
             setNotificaciones(prev => prev.filter(n => n.tarea_id !== task.id));
         }
     };
-
-    // --- REGLAS DE NEGOCIO ---
 
     const handleDeleteComment = async (commentId: string) => {
         const result = await MySwal.fire({
@@ -1041,8 +1026,7 @@ export default function TareasAvanzadas() {
             const { error } = await supabase.from('comentarios').delete().eq('id', commentId);
             if (!error) {
                 addToast("Comentario eliminado", "success");
-                // Actualizar UI localmente o recargar tarea
-                if (selectedTaskForDetail) openTaskDetail(selectedTaskForDetail); // Refresca simple
+                if (selectedTaskForDetail) openTaskDetail(selectedTaskForDetail);
             }
         }
     };
@@ -1062,92 +1046,95 @@ export default function TareasAvanzadas() {
         }
     };
 
-    // Regla 1 y 2: ¿Puede editar los detalles principales (título, fechas, descripción)?
     const canEditTaskDetails = (task: Tarea | null): boolean => {
-        if (!task) return true; // Si es nueva tarea, sí puede editar
+        if (!task) return true;
         if (!profile) return false;
 
-        // Admin siempre puede
+        // Si el usuario es "Usuario" y la tarea fue asignada por otro (no es creador), no puede editar
+        if (profile.rol_nombre === 'Usuario' && task.asignado_a === profile.id && task.creador_id !== profile.id) {
+            return false;
+        }
+
+        // REGLA ESPECÍFICA PARA MANAGER: Solo puede editar tareas que él ha asignado
+        if (profile.rol_nombre === 'Manager') {
+            // Solo puede editar si él es el creador (quien asignó la tarea)
+            return task.creador_id === profile.id;
+        }
+
+        // REGLA PARA TAREAS COMPLETADAS VENCIDAS: Solo Admin puede editar
+        if (task.estado?.nombre === 'Completada' &&
+            new Date(task.fecha_fin) < new Date()) {
+            // Tarea completada pero vencida = solo Admin puede editar
+            return profile.rol_nombre === 'Admin';
+        }
+
+        // Regla de Tarea Vencida (ESTRICTA)
+        if (task.estado?.nombre === 'Vencida') {
+            // Solo Admin o el Creador (quien asignó)
+            return (
+                profile.rol_nombre === 'Admin' ||
+                task.creador_id === profile.id
+            );
+        }
+
+        // Reglas normales (No vencidas)
         if (profile.rol_nombre === 'Admin') return true;
-
-        // El creador (dueño) siempre puede (aunque sea Manager o Usuario)
         if (task.creador_id === profile.id) return true;
+        if (task.asignado_a === profile.id) return true; // El responsable sí puede editar si NO está vencida
 
-        // Si se la asignaron a él (es asignado o colaborador) pero NO la creó: NO PUEDE EDITAR DETALLES
         return false;
     };
 
-    // Regla: ¿Puede cambiar el ESTADO de la tarea?
-    // Permitido para: Admin, Manager (de su depto), Creador, Responsable y Colaboradores.
     const canChangeStatus = (task: Tarea | null): boolean => {
         if (!task || !profile) return false;
 
-        // 1. Admin siempre puede
+        // REGLA ESPECÍFICA PARA MANAGER: Solo puede cambiar estado de tareas que él ha asignado
+        if (profile.rol_nombre === 'Manager') {
+            // Solo puede cambiar estado si él es el creador (quien asignó la tarea)
+            return task.creador_id === profile.id;
+        }
+
+        // REGLA PARA TAREAS COMPLETADAS VENCIDAS: Solo Admin puede modificar
+        if (task.estado?.nombre === 'Completada' &&
+            new Date(task.fecha_fin) < new Date()) {
+            // Tarea completada pero vencida = solo Admin puede modificar estado
+            return profile.rol_nombre === 'Admin';
+        }
+
+        // Regla de Tarea Vencida (ESTRICTA)
+        if (task.estado?.nombre === 'Vencida') {
+            // Solo Admin o el Creador pueden sacarla de "Vencida"
+            return (
+                profile.rol_nombre === 'Admin' ||
+                task.creador_id === profile.id
+            );
+        }
+
+        // Reglas normales
         if (profile.rol_nombre === 'Admin') return true;
-
-        // 2. Creador siempre puede
         if (task.creador_id === profile.id) return true;
-
-        // 3. Responsable asignado puede
         if (task.asignado_a === profile.id) return true;
-
-        // 4. Colaboradores pueden (CORRECCIÓN CRÍTICA)
-        if (task.colaboradores && task.colaboradores.some(c => c.usuario_id === profile.id)) {
-            return true;
-        }
-
-        // 5. Manager del mismo departamento puede
-        if (profile.rol_nombre === 'Manager' && profile.departamento_id === task.departamento_id) {
-            return true;
-        }
+        if (task.colaboradores && task.colaboradores.some(c => c.usuario_id === profile.id)) return true;
 
         return false;
     };
 
-    // Regla 1: Filtro de Estados permitidos
-    // Regla de Estados Permitidos
     const getAllowedStatuses = (currentStatusId: string) => {
         const task = editingTask || selectedTaskForDetail;
-
-        // 1. Si estamos creando una tarea nueva, mostramos todos los estados iniciales
         if (!task) return estados;
-
-        // 2. Si es ADMIN, siempre ve todo (opcional, por seguridad)
-        if (profile?.rol_nombre === 'Admin') {
-            return estados;
-        }
-
-        // 3. REGLA DEL CREADOR (Manager o Usuario)
-        // Si el usuario logueado es quien CREÓ la tarea, tiene acceso a TODOS los estados.
-        // Esto cubre: Manager crea tarea propia o para otros, Usuario crea tarea propia.
-        if (task.creador_id === profile?.id) {
-            return estados;
-        }
-
-        // 4. REGLA DEL ASIGNADO (Manager o Usuario)
-        // Si no la creó (se la asignaron a él), solo ve los 3 estados permitidos.
+        if (profile?.rol_nombre === 'Admin') return estados;
+        if (task.creador_id === profile?.id) return estados;
         const allowedNames = ['En Progreso', 'Completada', 'Pendiente'];
-
-        return estados.filter(e =>
-            // Permitimos los estados restringidos O el estado actual (para que no desaparezca del select)
-            allowedNames.includes(e.nombre) || e.id === currentStatusId
-        );
+        return estados.filter(e => allowedNames.includes(e.nombre) || e.id === currentStatusId);
     };
 
-
-    // Regla 4: ¿Puede editar/borrar comentario? (Ej: ventana de 15 minutos)
     const canManageComment = (comentario: Comentario) => {
         if (!profile) return false;
-        if (profile.rol_nombre === 'Admin') return true; // Admin modera todo
-
-        // Solo el autor puede
+        if (profile.rol_nombre === 'Admin') return true;
         if (comentario.usuario_id !== profile.id) return false;
-
-        // Tiempo límite: 15 minutos (900000 ms)
         const timeLimit = 15 * 60 * 1000;
         const commentTime = new Date(comentario.created_at).getTime();
         const now = new Date().getTime();
-
         return (now - commentTime) < timeLimit;
     };
 
@@ -1167,7 +1154,6 @@ export default function TareasAvanzadas() {
         setIsSubmittingComment(true);
 
         try {
-            // 1. Insertar el Comentario
             const { data: commentData, error: commentError } = await supabase
                 .from('comentarios')
                 .insert({
@@ -1180,11 +1166,10 @@ export default function TareasAvanzadas() {
 
             if (commentError) throw commentError;
 
-            // 2. Insertar Adjuntos del Comentario (Si existen)
             if (tempCommentAttachments.length > 0 && commentData) {
                 const attachmentsToInsert = tempCommentAttachments.map(file => ({
-                    tarea_id: selectedTaskForDetail.id, // Sigue perteneciendo a la tarea
-                    comentario_id: commentData.id,      // <--- VINCULACIÓN NUEVA
+                    tarea_id: selectedTaskForDetail.id,
+                    comentario_id: commentData.id,
                     subido_por: profile.id,
                     nombre_archivo: file.name,
                     url_archivo: file.path,
@@ -1198,9 +1183,6 @@ export default function TareasAvanzadas() {
 
                 if (adjError) throw adjError;
             }
-
-            // 3. Crear notificación (Opcional, pero recomendado)
-            // ... lógica de notificación aquí ...
 
             const { data: updatedTask, error: refreshError } = await supabase
                 .from('tareas')
@@ -1222,28 +1204,20 @@ export default function TareasAvanzadas() {
 
             if (refreshError) throw refreshError;
 
-            // 2. Actualizamos el modal con la nueva info (incluyendo el nuevo comentario)
             setSelectedTaskForDetail(updatedTask);
-
-            // 3. Actualizamos la lista de fondo también
             await fetchTareas();
-
-            // 4. Limpieza
             setNewCommentText('');
             setCommentFiles([]);
             setTempCommentAttachments([]);
-
             addToast("Comentario agregado", "success");
 
         } catch (error) {
             console.error("Error publicando comentario:", error);
-            // ... tu manejo de error con Swal ...
         } finally {
             setIsSubmittingComment(false);
         }
     };
 
-    // Filtrado y ordenamiento avanzado
     const filteredAndSortedTareas = useMemo(() => {
         let filtered = tareas.filter(tarea => {
             const matchesSearch = !searchTerm ||
@@ -1256,28 +1230,28 @@ export default function TareasAvanzadas() {
             const matchesDepartamento = filterDepartamento === 'all' || tarea.departamento_id === filterDepartamento;
 
             let matchesFecha = true;
-            if (filterFecha !== 'all') {
-                const today = new Date();
+            if (startDate || endDate) {
                 const taskDate = new Date(tarea.fecha_fin);
 
-                switch (filterFecha) {
-                    case 'today':
-                        matchesFecha = taskDate.toDateString() === today.toDateString();
-                        break;
-                    case 'week':
-                        const weekFromNow = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
-                        matchesFecha = taskDate <= weekFromNow;
-                        break;
-                    case 'overdue':
-                        matchesFecha = taskDate < today && tarea.estado?.nombre !== 'Completada';
-                        break;
+                if (startDate && endDate) {
+                    // Filter between start and end dates
+                    const start = new Date(startDate);
+                    const end = new Date(endDate);
+                    matchesFecha = taskDate >= start && taskDate <= end;
+                } else if (startDate) {
+                    // Filter from start date onwards
+                    const start = new Date(startDate);
+                    matchesFecha = taskDate >= start;
+                } else if (endDate) {
+                    // Filter up to end date
+                    const end = new Date(endDate);
+                    matchesFecha = taskDate <= end;
                 }
             }
 
             return matchesSearch && matchesEstado && matchesPrioridad && matchesUsuario && matchesDepartamento && matchesFecha;
         });
 
-        // Ordenamiento
         filtered.sort((a, b) => {
             let aValue, bValue;
 
@@ -1307,10 +1281,8 @@ export default function TareasAvanzadas() {
         });
 
         return filtered;
-    }, [tareas, searchTerm, filterEstado, filterPrioridad, filterUsuario, filterDepartamento, filterFecha, sortBy, sortOrder]);
+    }, [tareas, searchTerm, filterEstado, filterPrioridad, filterUsuario, filterDepartamento, filterFecha, startDate, endDate, sortBy, sortOrder]);
 
-    // --- VISTA KANBAN MEJORADA ---
-    // --- 1. HOOK PARA TOOLTIPS DE AVATARES
     type AvatarTooltipData =
         | { type: 'user'; x: number; y: number; name: string; role?: string }
         | { type: 'list'; x: number; y: number; users: string[] }
@@ -1352,7 +1324,7 @@ export default function TareasAvanzadas() {
                         transform: 'translate(-50%, -100%)'
                     }}
                 >
-                    <div className="bg-slate-800 text-white text-xs rounded-md px-3 py-2 shadow-xl whitespace-nowrap flex flex-col items-center">
+                    <div className="bg-slate-800 dark:bg-slate-900 text-white text-xs rounded-md px-3 py-2 shadow-xl whitespace-nowrap flex flex-col items-center border border-slate-700">
                         {tooltip.type === 'user' && (
                             <>
                                 <span className="font-bold">{tooltip.name}</span>
@@ -1373,7 +1345,7 @@ export default function TareasAvanzadas() {
                             </div>
                         )}
                     </div>
-                    <div className="w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[6px] border-t-slate-800" />
+                    <div className="w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[6px] border-t-slate-800 dark:border-t-slate-900" />
                 </div>,
                 document.body
             ) : null;
@@ -1381,12 +1353,9 @@ export default function TareasAvanzadas() {
         return { showUserTooltip, showListTooltip, hideTooltip, TooltipComponent };
     };
 
-    // --- 2. COMPONENTE KANBAN BOARD ACTUALIZADO ---
     const KanbanBoard = () => {
         const [draggedTask, setDraggedTask] = useState<Tarea | null>(null);
         const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
-
-        // Integramos el hook aquí
         const { showUserTooltip, showListTooltip, hideTooltip, TooltipComponent } = useAvatarTooltip();
 
         const handleDragStart = (e: React.DragEvent, task: Tarea) => {
@@ -1408,46 +1377,28 @@ export default function TareasAvanzadas() {
             e.preventDefault();
             setDragOverColumn(null);
 
-            // 1. Validaciones básicas
             if (!draggedTask) return;
             if (draggedTask.estado_id === newEstadoId) {
                 setDraggedTask(null);
                 return;
             }
 
-            // 2. Buscamos el objeto del estado destino para saber su nombre
             const targetStatus = estados.find(st => st.id === newEstadoId);
             if (!targetStatus) return;
 
-            // --- 3. VALIDACIÓN DE RESTRICCIONES (LA LÓGICA QUE PEDISTE) ---
-
-            // A. Si es ADMIN o es el CREADOR, pase directo (tiene permiso total)
             const isFullAccess =
                 profile?.rol_nombre === 'Admin' ||
                 draggedTask.creador_id === profile?.id;
 
             if (!isFullAccess) {
-                // B. Si NO tiene acceso total, validamos contra la lista blanca
                 const allowedNames = ['En Progreso', 'Completada', 'Pendiente'];
-
-                // NOTA: Asegúrate que targetStatus.nombre coincida exactamente (mayúsculas/espacios)
                 if (!allowedNames.includes(targetStatus.nombre)) {
-
-                    // C. BLOQUEO: Mostrar Toast y cancelar
-                    addToast(
-                        `Permiso restringido.
-No tienes autorización para mover tareas al estado "${targetStatus.nombre}". 
-Estados permitidos: En Progreso, Pendiente y Completada.`,
-                        "warning"
-                    );
-
-
-                    setDraggedTask(null); // Cancelar arrastre visual
-                    return; // SALIR DE LA FUNCIÓN SIN GUARDAR
+                    addToast(`Permiso restringido. No tienes autorización para mover tareas al estado "${targetStatus.nombre}". Estados permitidos: En Progreso, Pendiente y Completada.`, "warning");
+                    setDraggedTask(null);
+                    return;
                 }
             }
 
-            // 4. Si pasó las validaciones, ejecutamos la actualización
             await handleUpdateTaskStatus(draggedTask.id, newEstadoId);
             setDraggedTask(null);
         };
@@ -1462,14 +1413,13 @@ Estados permitidos: En Progreso, Pendiente y Completada.`,
                         <div
                             key={estado.id}
                             className={`flex-shrink-0 w-[340px] flex flex-col h-full max-h-full rounded-2xl transition-all duration-300 snap-center shadow-lg shadow-slate-200/40 dark:shadow-slate-900/30
-                            ${isDragOver ? 'bg-white/90 dark:bg-slate-800/90 ring-4 ring-indigo-100/50 dark:ring-indigo-500/20 scale-[1.02] shadow-indigo-200/30 dark:shadow-indigo-900/20' : 'bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm'}
+                            ${isDragOver ? 'bg-white/90 dark:bg-slate-800/90 ring-4 ring-indigo-100/50 dark:ring-indigo-500/20 scale-[1.02] shadow-indigo-200/30 dark:shadow-indigo-900/20' : 'bg-white dark:bg-slate-800'}
                         `}
                             style={{ borderTopColor: estado.color }}
                             onDragOver={(e) => handleDragOver(e, estado.id)}
                             onDragLeave={handleDragLeave}
                             onDrop={(e) => handleDrop(e, estado.id)}
                         >
-                            {/* Header Sticky */}
                             <div className="p-4 flex items-center justify-between sticky top-0 z-10 bg-white/95 dark:bg-slate-800/95 backdrop-blur-md rounded-t-2xl border-b border-slate-100/50 dark:border-slate-700/50 transition-colors duration-300">
                                 <div className="flex items-center gap-3">
                                     <div className="w-3 h-3 rounded-full shadow-sm" style={{ backgroundColor: estado.color }} />
@@ -1485,7 +1435,6 @@ Estados permitidos: En Progreso, Pendiente y Completada.`,
                                 </button>
                             </div>
 
-                            {/* Área de Cards */}
                             <div className="flex-1 overflow-y-auto px-3 pb-4 space-y-3 hide-scrollbar">
                                 {tareasEnColumna.map(tarea => (
                                     <div
@@ -1495,10 +1444,8 @@ Estados permitidos: En Progreso, Pendiente y Completada.`,
                                         onClick={() => openTaskDetail(tarea)}
                                         className="group relative bg-gradient-to-br from-white to-slate-50 dark:from-slate-700 dark:to-slate-800 rounded-xl p-4 shadow-sm hover:shadow-xl hover:shadow-slate-200/50 dark:hover:shadow-slate-900/50 hover:-translate-y-0.5 transition-all duration-300 border border-slate-100/80 dark:border-slate-600/50 cursor-grab active:cursor-grabbing"
                                     >
-                                        {/* Indicador Prioridad */}
                                         <div className="absolute left-0 top-3 bottom-3 w-1.5 rounded-r-full shadow-sm" style={{ backgroundColor: tarea.prioridad?.color || '#cbd5e1' }} />
 
-                                        {/* Cabecera Card */}
                                         <div className="flex justify-between items-start mb-2.5 pl-3">
                                             {tarea.prioridad && (
                                                 <div className="px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider border shadow-sm"
@@ -1514,7 +1461,6 @@ Estados permitidos: En Progreso, Pendiente y Completada.`,
                                             )}
                                         </div>
 
-                                        {/* Título y Desc */}
                                         <div className="pl-3 mb-3">
                                             <h4 className="font-bold text-slate-800 dark:text-slate-100 text-sm leading-snug mb-1.5 group-hover:text-indigo-700 dark:group-hover:text-indigo-300 transition-colors line-clamp-2">
                                                 {tarea.titulo}
@@ -1524,16 +1470,11 @@ Estados permitidos: En Progreso, Pendiente y Completada.`,
                                             </p>
                                         </div>
 
-                                        {/* Separador */}
                                         <div className="h-px bg-gradient-to-r from-slate-100 to-transparent dark:from-slate-600 dark:to-transparent w-full mb-3 ml-3 transition-colors duration-300" />
 
-                                        {/* Footer con Avatar Stack */}
                                         <div className="pl-3 flex items-center justify-between mt-auto pt-1">
                                             <div className="flex items-center gap-2">
-
-                                                {/* --- AVATAR STACK --- */}
                                                 <div className="flex items-center -space-x-2">
-                                                    {/* 1. Responsable (z-30) */}
                                                     <div className="z-30 ring-3 ring-white dark:ring-slate-700 rounded-full transition-all duration-200 hover:scale-110 hover:z-40 shadow-sm"
                                                         onMouseEnter={(e) => tarea.asignado ? showUserTooltip(e, tarea.asignado.nombre_completo, 'Responsable') : null}
                                                         onMouseLeave={hideTooltip}
@@ -1545,7 +1486,6 @@ Estados permitidos: En Progreso, Pendiente y Completada.`,
                                                         )}
                                                     </div>
 
-                                                    {/* 2. Colaboradores (z-20) */}
                                                     {tarea.colaboradores?.slice(0, 2).map((colab) => (
                                                         <div key={colab.usuario_id} className="z-20 ring-3 ring-white dark:ring-slate-700 rounded-full transition-all duration-200 hover:scale-110 hover:z-40 shadow-sm"
                                                             onMouseEnter={(e) => showUserTooltip(e, colab.usuario.nombre_completo, 'Colaborador')}
@@ -1555,7 +1495,6 @@ Estados permitidos: En Progreso, Pendiente y Completada.`,
                                                         </div>
                                                     ))}
 
-                                                    {/* 3. Badge +N (z-10) */}
                                                     {tarea.colaboradores && tarea.colaboradores.length > 2 && (
                                                         <div className="z-10 w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-600 ring-3 ring-white dark:ring-slate-700 flex items-center justify-center text-[10px] font-bold text-slate-500 dark:text-slate-300 cursor-help transition-all duration-200 hover:scale-110 hover:bg-slate-200 dark:hover:bg-slate-500 shadow-sm"
                                                             onMouseEnter={(e) => showListTooltip(e, tarea.colaboradores!.slice(2).map(c => c.usuario.nombre_completo))}
@@ -1566,14 +1505,12 @@ Estados permitidos: En Progreso, Pendiente y Completada.`,
                                                     )}
                                                 </div>
 
-                                                {/* Iconos (Paperclip/Comments) */}
                                                 <div className="flex gap-1.5 text-slate-400 dark:text-slate-500 ml-1 transition-colors duration-300">
                                                     {(tarea.adjuntos_count || 0) > 0 && <div className="flex items-center gap-0.5 text-[10px] bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 rounded-md transition-colors duration-300"><Paperclip size={11} /> {tarea.adjuntos_count}</div>}
                                                     {(tarea.comentarios_count || 0) > 0 && <div className="flex items-center gap-0.5 text-[10px] bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 rounded-md transition-colors duration-300"><MessageSquare size={11} /> {tarea.comentarios_count}</div>}
                                                 </div>
                                             </div>
 
-                                            {/* Fecha */}
                                             <div className={`text-[10px] font-bold flex items-center gap-1 px-2 py-1 rounded-lg border shadow-sm transition-colors duration-300 ${new Date(tarea.fecha_fin) < new Date() && tarea.estado?.nombre !== 'Completada' ? 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800' : 'text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-700 border-slate-200 dark:border-slate-600'}`}>
                                                 <Clock size={11} /> {formatShortDate(tarea.fecha_fin)}
                                             </div>
@@ -1595,9 +1532,7 @@ Estados permitidos: En Progreso, Pendiente y Completada.`,
         );
     };
 
-    // --- VISTA LISTA MEJORADA ---
     const ListBoard = () => (
-
         <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl shadow-slate-200/50 dark:shadow-slate-900/50 border border-slate-200/60 dark:border-slate-700/60 overflow-hidden transition-colors duration-300">
             <div className="overflow-x-auto">
                 <table className="w-full">
@@ -1742,7 +1677,21 @@ Estados permitidos: En Progreso, Pendiente y Completada.`,
         </div>
     );
 
-    // --- VISTA GANTT / TIMELINE REAL ---
+    // 1. Forzar fecha local sin horas (AAAA-MM-DDT00:00:00 local)
+    const parseDateToLocal = (dateStr: string | null | undefined): Date => {
+        if (!dateStr) return new Date();
+        const [year, month, day] = dateStr.split('-').map(Number);
+        return new Date(year, month - 1, day, 0, 0, 0, 0);
+    };
+
+    // 2. Calcular diferencia exacta en días enteros (ignorando horas/minutos)
+    const getDiffInDays = (dateA: Date, dateB: Date): number => {
+        // Usamos UTC internamente para evitar problemas de cambio de horario
+        const utc1 = Date.UTC(dateA.getFullYear(), dateA.getMonth(), dateA.getDate());
+        const utc2 = Date.UTC(dateB.getFullYear(), dateB.getMonth(), dateB.getDate());
+        return Math.floor((utc2 - utc1) / (1000 * 60 * 60 * 24));
+    };
+
     const TimelineBoard = () => {
         const { handleMouseEnter, handleMouseLeave, TooltipComponent } = useTaskTooltip();
         const {
@@ -1751,31 +1700,58 @@ Estados permitidos: En Progreso, Pendiente y Completada.`,
             hideTooltip,
             TooltipComponent: AvatarTooltipComponent
         } = useAvatarTooltip();
-        // 1. Configuración del rango de fechas (Ventana de visualización)
-        // Por defecto mostramos 30 días desde la fecha mínima encontrada o hoy
-        const timelineStart = useMemo(() => {
-            if (filteredAndSortedTareas.length === 0) return new Date();
-            const minDate = new Date(Math.min(...filteredAndSortedTareas.map(t => new Date(t.fecha_inicio).getTime())));
-            // Restamos 2 días de margen
-            minDate.setDate(minDate.getDate() - 2);
+
+        const getLocalTodayString = () => {
+            const d = new Date();
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        };
+
+        // 1. Calcular Fecha de Inicio del Gráfico
+        const timelineStart = useMemo((): Date => {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            if (filteredAndSortedTareas.length === 0) {
+                const minDate = new Date(today);
+                minDate.setDate(minDate.getDate() - 2);
+                return minDate;
+            }
+
+            const timestamps = filteredAndSortedTareas.map(t => parseDateToLocal(t.fecha_inicio).getTime());
+            timestamps.push(today.getTime());
+
+            const minDate = new Date(Math.min(...timestamps));
+            minDate.setDate(minDate.getDate() - 2); // Margen visual
             return minDate;
         }, [filteredAndSortedTareas]);
 
-        const timelineEnd = useMemo(() => {
-            if (filteredAndSortedTareas.length === 0) return new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-            const maxDate = new Date(Math.max(...filteredAndSortedTareas.map(t => new Date(t.fecha_fin).getTime())));
-            // Sumamos 5 días de margen
-            maxDate.setDate(maxDate.getDate() + 5);
+        // 2. Calcular Fecha de Fin del Gráfico
+        const timelineEnd = useMemo((): Date => {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            if (filteredAndSortedTareas.length === 0) {
+                const maxDate = new Date(today);
+                maxDate.setDate(maxDate.getDate() + 30);
+                return maxDate;
+            }
+
+            const timestamps = filteredAndSortedTareas.map(t => parseDateToLocal(t.fecha_fin).getTime());
+            timestamps.push(today.getTime());
+
+            const maxDate = new Date(Math.max(...timestamps));
+            maxDate.setDate(maxDate.getDate() + 5); // Margen visual
             return maxDate;
         }, [filteredAndSortedTareas]);
 
-        // Duración total en milisegundos para calcular porcentajes
-        const totalDuration = timelineEnd.getTime() - timelineStart.getTime();
-
-        // Generar array de días para el encabezado
+        // 3. Generar array de días (Columnas)
         const days = useMemo(() => {
             const daysArray = [];
             const currentDate = new Date(timelineStart);
+            // Iteramos añadiendo días hasta llegar al fin
             while (currentDate <= timelineEnd) {
                 daysArray.push(new Date(currentDate));
                 currentDate.setDate(currentDate.getDate() + 1);
@@ -1783,54 +1759,53 @@ Estados permitidos: En Progreso, Pendiente y Completada.`,
             return daysArray;
         }, [timelineStart, timelineEnd]);
 
-        // Funciones de cálculo de posición
+        const totalDays = days.length;
+
+        // 4. Lógica de Posicionamiento por ÍNDICE (Exacta)
         const getLeftPosition = (startDateString: string) => {
-            const start = new Date(startDateString).getTime();
-            const offset = start - timelineStart.getTime();
-            return Math.max(0, (offset / totalDuration) * 100);
+            const start = parseDateToLocal(startDateString);
+            // ¿Cuántos días hay desde el inicio del gráfico hasta el inicio de la tarea?
+            const diffDays = getDiffInDays(timelineStart, start);
+
+            // Si hay 20 días en total y la tarea empieza en el día 5, posición = 5/20 = 25%
+            return (diffDays / totalDays) * 100;
         };
 
         const getWidth = (startDateString: string, endDateString: string) => {
-            const start = new Date(startDateString).getTime();
-            const end = new Date(endDateString).getTime();
-            const duration = end - start;
-            // Mínimo 1% para que siempre se vea algo
-            return Math.max(1, (duration / totalDuration) * 100);
+            const start = parseDateToLocal(startDateString);
+            const end = parseDateToLocal(endDateString);
+
+            // Duración inclusiva (si empieza el 20 y termina el 20, es 1 día de duración)
+            const durationDays = getDiffInDays(start, end) + 1;
+
+            return (durationDays / totalDays) * 100;
         };
 
         return (
             <div className="h-full flex flex-col bg-white dark:bg-slate-800 rounded-2xl shadow-xl shadow-slate-200/50 dark:shadow-slate-900/50 border border-slate-200/60 dark:border-slate-700/60 overflow-hidden relative transition-colors duration-300">
 
                 <div className="flex flex-1 overflow-hidden relative">
-                    {/* COLUMNA IZQUIERDA: Lista de Tareas (Sticky) */}
+                    {/* ZONA IZQUIERDA (LISTA) */}
                     <div className="w-64 flex-shrink-0 border-r border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 z-10 flex flex-col overflow-hidden shadow-[4px_0_24px_rgba(0,0,0,0.04)] dark:shadow-[4px_0_24px_rgba(0,0,0,0.3)] transition-colors duration-300">
-                        {/* Header Columna */}
                         <div className="h-12 border-b border-slate-100 dark:border-slate-700 flex items-center px-5 bg-gradient-to-r from-slate-50 to-white dark:from-slate-800 dark:to-slate-800 transition-colors duration-300">
                             <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider transition-colors duration-300">Tareas</span>
                         </div>
 
-                        {/* Lista Tareas */}
                         <div className="overflow-y-hidden flex-1 bg-white dark:bg-slate-800 transition-colors duration-300">
                             {filteredAndSortedTareas.map((tarea) => (
                                 <div key={tarea.id} className="h-16 flex items-center px-5 border-b border-slate-50 dark:border-slate-700/50 hover:bg-gradient-to-r hover:from-slate-50/80 hover:to-white dark:hover:from-slate-700/50 dark:hover:to-slate-700 transition-all duration-200 group cursor-pointer shadow-sm dark:shadow-none" onClick={() => openTaskDetail(tarea)}>
                                     <div className="min-w-0">
                                         <div className="text-sm font-bold text-slate-700 dark:text-slate-200 truncate transition-colors duration-300">{tarea.titulo}</div>
                                         <div className="flex items-center gap-2.5 mt-2">
+                                            {/* Avatares (Sin cambios en lógica) */}
                                             {tarea.asignado ? (
                                                 <div className="flex items-center -space-x-2">
-                                                    {/* 1. Responsable (z-30) */}
                                                     <div className="z-30 ring-3 ring-white dark:ring-slate-700 rounded-full transition-all duration-200 hover:scale-110 hover:z-40 shadow-sm"
                                                         onMouseEnter={(e) => tarea.asignado ? showUserTooltip(e, tarea.asignado.nombre_completo, 'Responsable') : null}
                                                         onMouseLeave={hideTooltip}
                                                     >
-                                                        {tarea.asignado ? (
-                                                            <UserAvatar url={tarea.asignado.avatar_url} name={tarea.asignado.nombre_completo} size="sm" showTooltip={false} />
-                                                        ) : (
-                                                            <div className="w-8 h-8 rounded-full border-2 border-dashed border-slate-200 dark:border-slate-600 flex items-center justify-center bg-slate-50 dark:bg-slate-700 text-slate-300 dark:text-slate-500"><UserIcon size={14} /></div>
-                                                        )}
+                                                        <UserAvatar url={tarea.asignado.avatar_url} name={tarea.asignado.nombre_completo} size="sm" showTooltip={false} />
                                                     </div>
-
-                                                    {/* 2. Colaboradores (z-20) */}
                                                     {tarea.colaboradores?.slice(0, 2).map((colab) => (
                                                         <div key={colab.usuario_id} className="z-20 ring-3 ring-white dark:ring-slate-700 rounded-full transition-all duration-200 hover:scale-110 hover:z-40 shadow-sm"
                                                             onMouseEnter={(e) => showUserTooltip(e, colab.usuario.nombre_completo, 'Colaborador')}
@@ -1839,8 +1814,6 @@ Estados permitidos: En Progreso, Pendiente y Completada.`,
                                                             <UserAvatar url={colab.usuario.avatar_url} name={colab.usuario.nombre_completo} size="sm" showTooltip={false} />
                                                         </div>
                                                     ))}
-
-                                                    {/* 3. Badge +N (z-10) */}
                                                     {tarea.colaboradores && tarea.colaboradores.length > 2 && (
                                                         <div className="z-10 w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-600 ring-3 ring-white dark:ring-slate-700 flex items-center justify-center text-[10px] font-bold text-slate-500 dark:text-slate-300 cursor-help transition-all duration-200 hover:scale-110 hover:bg-slate-200 dark:hover:bg-slate-500 shadow-sm"
                                                             onMouseEnter={(e) => showListTooltip(e, tarea.colaboradores!.slice(2).map(c => c.usuario.nombre_completo))}
@@ -1858,12 +1831,12 @@ Estados permitidos: En Progreso, Pendiente y Completada.`,
                         </div>
                     </div>
 
-                    {/* AREA DERECHA: El Gantt Chart */}
+                    {/* ZONA DERECHA (CRONOGRAMA) */}
                     <div className="flex-1 overflow-auto custom-scrollbar bg-gradient-to-br from-slate-50 to-white dark:from-slate-800 dark:to-slate-900 relative transition-colors duration-300">
                         <div className="min-w-[800px] relative">
-
-                            {/* 1. EJE DE TIEMPO (Días) */}
-                            <div className="h-12 border-b border-slate-200 dark:border-slate-700 flex bg-gradient-to-r from-white to-slate-50 dark:from-slate-800 dark:to-slate-900 sticky top-0 z-10 shadow-sm transition-colors duration-300">
+                            {/* ENCABEZADOS DE DÍAS */}
+                            {/* px-5 al inicio para alinear con el contenido de las filas */}
+                            <div className="h-12 border-b border-slate-200 dark:border-slate-700 flex bg-gradient-to-r from-white to-slate-50 dark:from-slate-800 dark:to-slate-900 sticky top-0 z-10 shadow-sm transition-colors duration-300 px-5">
                                 {days.map((day, i) => (
                                     <div key={i} className="flex-1 min-w-[40px] flex flex-col items-center justify-center border-r border-slate-100 dark:border-slate-700/50 last:border-0 transition-colors duration-300">
                                         <span className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase transition-colors duration-300">{day.toLocaleDateString(undefined, { weekday: 'short' })}</span>
@@ -1874,59 +1847,104 @@ Estados permitidos: En Progreso, Pendiente y Completada.`,
                                 ))}
                             </div>
 
-                            {/* 2. GRID Y BARRAS */}
-                            <div className="relative">
-                                {/* Grid de fondo */}
-                                <div className="absolute inset-0 flex pointer-events-none">
-                                    {days.map((_, i) => (
-                                        <div key={i} className={`flex-1 min-w-[40px] border-r ${i % 7 === 0 || i % 7 === 6 ? 'bg-slate-100/40 dark:bg-slate-800/40' : 'bg-slate-50/30 dark:bg-slate-900/30'} border-slate-100 dark:border-slate-700/50 last:border-0 h-full transition-colors duration-300`} />
-                                    ))}
+                            {/* CONTENEDOR DE BARRAS Y LÍNEAS */}
+                            <div className="relative border-t border-slate-200 dark:border-slate-800">
+
+                                {/* LÍNEAS DE CUADRÍCULA (FONDO MEJORADO) */}
+                                <div className="absolute inset-0 flex pointer-events-none px-5 bg-white dark:bg-[#0f172a]">
+                                    {days.map((_, i) => {
+                                        // Lógica para fines de semana (más sutil)
+                                        const isWeekend = i % 7 === 0 || i % 7 === 6;
+                                        return (
+                                            <div
+                                                key={i}
+                                                className={`
+                        flex-1 min-w-[40px] h-full border-r last:border-0 transition-colors duration-300
+                        border-slate-100 dark:border-slate-800/60
+                        ${isWeekend
+                                                        ? 'bg-slate-50/80 dark:bg-slate-900/40'
+                                                        : 'bg-transparent'}
+                    `}
+                                            />
+                                        );
+                                    })}
+
+                                    {/* LÍNEA DE HOY (EFECTO LÁSER) */}
                                     <div
-                                        className="absolute top-0 bottom-0 w-px bg-red-500 z-0 opacity-50 border-l border-dashed border-red-500 dark:opacity-40"
-                                        style={{ left: `${getLeftPosition(new Date().toISOString())}%` }}
-                                    />
+                                        className="absolute top-0 bottom-0 w-[2px] z-20 shadow-[0_0_10px_rgba(239,68,68,0.6)] bg-rose-500"
+                                        style={{ left: `${getLeftPosition(getLocalTodayString())}%` }}
+                                    >
+                                        <div className="absolute -top-1 -left-[3px] w-2 h-2 bg-rose-500 rounded-full shadow-sm" />
+                                    </div>
                                 </div>
 
-                                {/* Filas de Tareas (Barras) */}
-                                <div className="relative">
+                                {/* BARRAS DE TAREAS */}
+                                {/* BARRAS DE TAREAS */}
+                                <div className="relative py-2">
                                     {filteredAndSortedTareas.map((tarea) => {
                                         const left = getLeftPosition(tarea.fecha_inicio);
                                         const width = getWidth(tarea.fecha_inicio, tarea.fecha_fin);
-                                        const isOverdue = new Date(tarea.fecha_fin) < new Date() && tarea.estado?.nombre !== 'Completada';
 
-                                        const barColor = isOverdue
-                                            ? 'bg-red-500 border-red-600'
-                                            : tarea.estado?.nombre === 'Completada'
-                                                ? 'bg-emerald-500 border-emerald-600'
-                                                : tarea.prioridad?.color ? '' : 'bg-indigo-500 border-indigo-600';
+                                        // Lógica de Estado
+                                        const isCompleted = tarea.estado?.nombre === 'Completada';
+                                        const isOverdue = new Date(tarea.fecha_fin) < new Date() && !isCompleted;
+                                        // Verificamos si existe color usando optional chaining (?.)
+                                        const customColor = tarea.prioridad?.color;
 
-                                        const dynamicStyle = tarea.prioridad?.color && !isOverdue && tarea.estado?.nombre !== 'Completada'
-                                            ? { backgroundColor: tarea.prioridad.color, borderColor: tarea.prioridad.color }
-                                            : {};
+                                        // Clases base
+                                        const baseBarClasses = "absolute h-10 rounded-md shadow-md cursor-pointer hover:shadow-xl hover:-translate-y-[1px] transition-all duration-300 group overflow-visible flex items-center px-3 border-t border-white/20 dark:border-white/10";
+
+                                        // Determinar estilos visuales
+                                        let colorClasses = "";
+
+                                        // CORRECCIÓN 1: Tipamos explícitamente como React.CSSProperties
+                                        const inlineStyle: React.CSSProperties = {
+                                            left: `${left}%`,
+                                            width: `${width}%`
+                                        };
+
+                                        if (isCompleted) {
+                                            // VERDE SATISFACTORIO
+                                            colorClasses = "bg-gradient-to-r from-emerald-500 to-teal-500 dark:from-emerald-600 dark:to-teal-700 shadow-emerald-500/20";
+                                        } else if (isOverdue) {
+                                            // ROJO ALERTA
+                                            colorClasses = "bg-gradient-to-r from-red-500 to-rose-600 dark:from-red-600 dark:to-rose-700 shadow-red-500/20 ring-1 ring-red-500/50 animate-pulse-slow";
+                                        } else if (customColor) {
+                                            // COLOR PERSONALIZADO (Prioridad)
+                                            // CORRECCIÓN 2: Asignamos el color background dinámicamente
+                                            inlineStyle.backgroundColor = customColor;
+                                            colorClasses = "shadow-lg brightness-100 hover:brightness-110";
+                                        } else {
+                                            // POR DEFECTO (Índigo)
+                                            colorClasses = "bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-700 dark:to-indigo-700 shadow-blue-500/20";
+                                        }
 
                                         return (
-                                            <div key={tarea.id} className="h-14 border-b border-slate-50 dark:border-slate-700/50 flex items-center relative hover:bg-white/60 dark:hover:bg-slate-800/60 transition-colors duration-300">
-                                                <div
-                                                    className={`absolute h-9 rounded-lg shadow-md border border-opacity-20 cursor-pointer hover:shadow-lg hover:scale-y-105 transition-all group overflow-visible flex items-center px-3
-                                                    ${!tarea.prioridad?.color && !isOverdue && tarea.estado?.nombre !== 'Completada' ? barColor : ''}
-                                                    ${isOverdue ? 'bg-red-50 dark:bg-red-900/20' : ''}
-                                                    ${tarea.estado?.nombre === 'Completada' ? 'bg-emerald-500 opacity-60 grayscale-[0.3] dark:opacity-50' : ''}
-                                                `}
-                                                    style={{
-                                                        left: `${left}%`,
-                                                        width: `${width}%`,
-                                                        ...dynamicStyle
-                                                    }}
-                                                    onClick={() => openTaskDetail(tarea)}
-                                                    // 2. CONECTAMOS LOS EVENTOS DEL MOUSE AQUÍ
-                                                    onMouseEnter={(e) => handleMouseEnter(e, tarea)}
-                                                    onMouseLeave={handleMouseLeave}
-                                                >
-                                                    <span className="text-[10px] font-bold text-white dark:text-slate-100 truncate drop-shadow-md sticky left-3 transition-colors duration-300">
-                                                        {width > 5 ? tarea.titulo : ''}
-                                                    </span>
+                                            <div
+                                                key={tarea.id}
+                                                className="h-[60px] flex items-center px-5 relative group/row hover:bg-slate-50/80 dark:hover:bg-slate-800/30 transition-colors border-b border-transparent hover:border-slate-100 dark:hover:border-slate-700/30"
+                                            >
+                                                <div className="relative w-full h-full flex items-center">
+                                                    <div
+                                                        className={`${baseBarClasses} ${colorClasses}`}
+                                                        style={inlineStyle}
+                                                        onClick={() => openTaskDetail(tarea)}
+                                                        onMouseEnter={(e) => handleMouseEnter(e, tarea)}
+                                                        onMouseLeave={handleMouseLeave}
+                                                    >
+                                                        {/* Brillo superior */}
+                                                        <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/40 to-transparent opacity-50" />
 
-                                                    {/* HE ELIMINADO EL DIV DEL TOOLTIP VIEJO DE AQUÍ */}
+                                                        {/* Texto dentro de la barra */}
+                                                        <div className="flex items-center gap-2 w-full overflow-hidden">
+                                                            {isCompleted && <span className="text-white/80">✓</span>}
+                                                            {isOverdue && <span className="text-white/90">!</span>}
+
+                                                            <span className="text-[11px] font-bold text-white tracking-wide truncate drop-shadow-md select-none sticky left-2">
+                                                                {width > 3 ? tarea.titulo : ''}
+                                                            </span>
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </div>
                                         );
@@ -1936,18 +1954,47 @@ Estados permitidos: En Progreso, Pendiente y Completada.`,
                         </div>
                     </div>
                 </div>
-
-                {/* 3. FINALMENTE, RENDERIZAMOS EL COMPONENTE TOOLTIP AQUÍ */}
-                <TooltipComponent />        {/* tooltip de tareas */}
+                <TooltipComponent />
                 <AvatarTooltipComponent />
             </div>
         );
     };
 
-    // --- RENDER PRINCIPAL ---
+    // Funciones para manejar el modal de motivo
+    const handleMotivoSubmit = async () => {
+        if (!motivoTexto.trim()) {
+            addToast('Por favor, ingresa el motivo', 'warning');
+            return;
+        }
+
+        try {
+            await handleUpdateTaskStatus(motivoModal.taskId, motivoModal.nuevoEstadoId, motivoTexto.trim());
+            setMotivoModal({
+                isOpen: false,
+                taskId: '',
+                nuevoEstadoId: '',
+                nombreEstado: '',
+                tipo: 'rechazo'
+            });
+            setMotivoTexto('');
+        } catch (error) {
+            console.error('Error al procesar motivo:', error);
+        }
+    };
+
+    const handleMotivoCancel = () => {
+        setMotivoModal({
+            isOpen: false,
+            taskId: '',
+            nuevoEstadoId: '',
+            nombreEstado: '',
+            tipo: 'rechazo'
+        });
+        setMotivoTexto('');
+    };
+
     return (
-        <div className="flex flex-col h-full bg-slate-50 w-full relative overflow-hidden">
-            {/* Toasts */}
+        <div className="flex flex-col h-full bg-slate-50 dark:bg-slate-950 w-full relative overflow-hidden">
             <div className="fixed top-6 right-6 z-[60] space-y-3 pointer-events-none">
                 {toasts.map(toast => (
                     <div className="pointer-events-auto" key={toast.id}>
@@ -1960,17 +2007,10 @@ Estados permitidos: En Progreso, Pendiente y Completada.`,
                 ))}
             </div>
 
-            {/* Header Mejorado */}
-            <div className="flex flex-col h-full bg-slate-50 w-full relative overflow-hidden">
-
-                {/* 1. HEADER SUPERIOR: Título y Vistas (Estilo Pestañas) */}
-                <div className="sticky top-0 z-20 bg-white border-b border-slate-200">
+            <div className="min-h-screen bg-linear-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-900 p-6 relative overflow-hidden">
+                <div className="sticky top-0 z-20 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 transition-colors duration-300">
                     <div className="flex flex-col gap-4 px-4 py-3 md:px-6 md:py-4">
-
-                        {/* FILA SUPERIOR */}
                         <div className="flex items-center justify-between gap-4">
-
-                            {/* TABS */}
                             <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
                                 {[
                                     { id: 'kanban', icon: Layout, label: 'Tablero' },
@@ -1983,8 +2023,8 @@ Estados permitidos: En Progreso, Pendiente y Completada.`,
                                         className={`
             flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md border-b-2 whitespace-nowrap transition
             ${viewMode === view.id
-                                                ? 'border-indigo-600 text-indigo-700 bg-indigo-50/50'
-                                                : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+                                                ? 'border-indigo-600 text-indigo-700 dark:text-indigo-400 bg-indigo-50/50 dark:bg-indigo-900/20'
+                                                : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800'
                                             }
           `}
                                     >
@@ -1994,8 +2034,7 @@ Estados permitidos: En Progreso, Pendiente y Completada.`,
                                 ))}
                             </div>
 
-                            {/* BOTÓN DESKTOP */}
-                            {['Admin', 'Manager'].includes(profile?.rol_nombre || '') && (
+                            {(['Admin', 'Manager', 'Usuario'].includes(profile?.rol_nombre || '')) && (
                                 <button
                                     onClick={() => {
                                         setEditingTask(null);
@@ -2008,24 +2047,15 @@ Estados permitidos: En Progreso, Pendiente y Completada.`,
                                 </button>
                             )}
                         </div>
-
-
                     </div>
 
-                    {/* 🔵 BOTÓN MOBILE (FAB) */}
-                    {['Admin', 'Manager'].includes(profile?.rol_nombre || '') && (
+                    {(['Admin', 'Manager', 'Usuario'].includes(profile?.rol_nombre || '')) && (
                         <button
                             onClick={() => {
                                 setEditingTask(null);
                                 setIsModalOpen(true);
                             }}
-                            className="
-        sm:hidden
-        fixed bottom-6 right-6 z-30
-        bg-indigo-600 hover:bg-indigo-700
-        text-white p-4 rounded-full
-        shadow-xl transition
-      "
+                            className="sm:hidden fixed bottom-6 right-6 z-30 bg-indigo-600 hover:bg-indigo-700 text-white p-4 rounded-full shadow-xl transition"
                             aria-label="Nueva tarea"
                         >
                             <Plus size={22} />
@@ -2033,34 +2063,28 @@ Estados permitidos: En Progreso, Pendiente y Completada.`,
                     )}
                 </div>
 
-                {/* BARRA DE HERRAMIENTAS: Diseño Profesional Adaptativo */}
-                <div className="bg-white border-b border-slate-200 overflow-visible">
+                <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 overflow-visible transition-colors duration-300">
                     <div className="px-4 sm:px-6 py-3 sm:py-4 overflow-visible">
-
-                        {/* FILA 1: Buscador y Acciones Principales */}
                         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mb-3">
-
-                            {/* Buscador Expandido */}
                             <div className="relative flex-1 sm:max-w-xs lg:max-w-md">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
                                 <input
                                     type="text"
                                     placeholder="Buscar tareas..."
-                                    className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-slate-200 bg-white text-sm 
+                                    className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm 
                              focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 
-                             transition-all placeholder:text-slate-400 hover:border-slate-300"
+                             transition-all placeholder:text-slate-400 hover:border-slate-300 dark:hover:border-slate-600 text-slate-800 dark:text-slate-200"
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
                                 />
                             </div>
 
-                            {/* Botones de Acción */}
                             <div className="flex items-center gap-2 sm:ml-auto">
                                 <button
                                     onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-                                    className="flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium text-slate-600 
-                             hover:text-slate-900 hover:bg-slate-50 rounded-lg transition-all
-                             border border-slate-200 hover:border-slate-300"
+                                    className="flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-400 
+                             hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg transition-all
+                             border border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600"
                                     title="Ordenar"
                                 >
                                     {sortOrder === 'asc' ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
@@ -2075,9 +2099,9 @@ Estados permitidos: En Progreso, Pendiente y Completada.`,
                                         addToast("Sincronizado", "success");
                                     }}
                                     disabled={refreshing}
-                                    className="flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium text-slate-600 
-                             hover:text-slate-900 hover:bg-slate-50 rounded-lg transition-all
-                             border border-slate-200 hover:border-slate-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className="flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-400 
+                             hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg transition-all
+                             border border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 disabled:opacity-50 disabled:cursor-not-allowed"
                                     title="Actualizar"
                                 >
                                     <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
@@ -2086,18 +2110,19 @@ Estados permitidos: En Progreso, Pendiente y Completada.`,
                             </div>
                         </div>
 
-                        {/* FILA 2: Filtros */}
-                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 overflow-visible">
-
-                            {/* Label de Filtros (Desktop) */}
-                            <div className="hidden lg:flex items-center gap-2 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                        {/* CONTENEDOR PRINCIPAL DE FILTROS */}
+                        <div className="w-full">
+                            {/* Header "Filtros" (Visible solo en desktop) */}
+                            <div className="hidden lg:flex items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">
                                 <Filter size={14} />
                                 <span>Filtros</span>
                             </div>
 
-                            {/* Contenedor de Filtros con Scroll Horizontal en Mobile */}
-                            <div className="flex items-center gap-2 overflow-x-auto pb-1 -mx-4 px-4 sm:mx-0 sm:px-0 sm:flex-1 scrollbar-hide">
-                                <div className="flex-shrink-0 w-40 sm:w-auto sm:min-w-[140px] sm:flex-1 sm:max-w-[180px]">
+                            {/* GRUPO DE INPUTS (Flex Wrap activado) */}
+                            <div className="flex flex-wrap items-center gap-3 w-full">
+
+                                {/* 1. FILTRO ESTADO */}
+                                <div className="w-full sm:w-auto sm:flex-1 min-w-[140px]">
                                     <CustomSelector
                                         options={estados}
                                         value={filterEstado}
@@ -2105,86 +2130,93 @@ Estados permitidos: En Progreso, Pendiente y Completada.`,
                                         placeholder="Estado"
                                         icon={Filter}
                                         searchable={false}
-                                        className="!py-2 !text-sm !rounded-lg !border-slate-200 hover:border-slate-300! transition-all!"
+                                        className="!w-full !py-2 !text-sm !rounded-lg !border-slate-200 dark:!border-slate-700 hover:!border-slate-300! transition-all! !bg-white dark:!bg-slate-800 !text-slate-700 dark:!text-slate-300"
                                         label=""
                                     />
                                 </div>
 
-                                {/* Filtro Prioridad */}
-                                <div className="shrink-0 w-40 sm:w-auto sm:min-w-[140px] sm:flex-1 sm:max-w-[180px]">
+                                {/* 2. FILTRO PRIORIDAD */}
+                                <div className="w-full sm:w-auto sm:flex-1 min-w-[140px]">
                                     <CustomSelector
                                         options={prioridades}
                                         value={filterPrioridad}
                                         onChange={(val) => setFilterPrioridad(val as string)}
                                         placeholder="Prioridad"
-                                        icon={Star}
+                                        icon={Target}
                                         searchable={false}
-                                        className="!py-2 !text-sm !rounded-lg !border-slate-200 hover:!border-slate-300 !transition-all"
+                                        className="!w-full !py-2 !text-sm !rounded-lg !border-slate-200 dark:!border-slate-700 hover:!border-slate-300! transition-all !bg-white dark:!bg-slate-800 !text-slate-700 dark:!text-slate-300"
                                         label=""
                                     />
                                 </div>
 
-                                {/* Filtro Usuario */}
-                                <div className="flex-shrink-0 w-48 sm:w-auto sm:min-w-[160px] sm:flex-1 sm:max-w-[220px]">
-                                    <CustomSelector
-                                        options={usuariosParaAsignar}
-                                        value={filterUsuario}
-                                        onChange={(val) => setFilterUsuario(val as string)}
-                                        placeholder="Asignado a"
-                                        icon={UserIcon}
-                                        searchable={true}
-                                        getDisplayValue={(user) => user.nombre_completo}
-                                        getSearchValue={(user) => user.nombre_completo}
-                                        getAvatar={(user) => user.avatar_url}
-                                        className="!py-2 !text-sm !rounded-lg !border-slate-200 hover:!border-slate-300 !transition-all"
-                                        label=""
-                                    />
+                                {/* 3. FILTRO ASIGNADO A (Condicional) */}
+                                {profile?.rol_nombre !== 'Usuario' && (
+                                    <div className="w-full sm:w-auto sm:flex-1 min-w-[160px]">
+                                        <CustomSelector
+                                            options={usuariosParaAsignar}
+                                            value={filterUsuario}
+                                            onChange={(val) => setFilterUsuario(val as string)}
+                                            placeholder="Asignado a"
+                                            icon={UserIcon}
+                                            searchable={true}
+                                            getDisplayValue={(user) => user.nombre_completo}
+                                            getSearchValue={(user) => user.nombre_completo}
+                                            getAvatar={(user) => user.avatar_url}
+                                            className="!w-full !py-2 !text-sm !rounded-lg !border-slate-200 dark:!border-slate-700 hover:!border-slate-300! transition-all !bg-white dark:!bg-slate-800 !text-slate-700 dark:!text-slate-300"
+                                            label=""
+                                        />
+                                    </div>
+                                )}
+
+                                {/* 4. FILTRO FECHAS (Rango) */}
+                                <div className="w-full md:w-auto">
+                                    <div className="flex items-center gap-2 bg-white dark:bg-slate-800 rounded-lg px-3 py-2 border border-slate-200 dark:border-slate-700 shadow-sm w-full transition-all hover:border-slate-300 dark:hover:border-slate-600">
+                                        <Calendar size={16} className="text-slate-400 shrink-0" />
+
+                                        <input
+                                            type="date"
+                                            value={startDate}
+                                            onChange={(e) => setStartDate(e.target.value)}
+                                            className="border-none bg-transparent p-0 text-sm w-full sm:w-28 text-slate-600 dark:text-slate-200 focus:ring-0 cursor-pointer placeholder-slate-400"
+                                        />
+
+                                        <span className="text-slate-300 dark:text-slate-600 font-medium">—</span>
+
+                                        <input
+                                            type="date"
+                                            value={endDate}
+                                            onChange={(e) => setEndDate(e.target.value)}
+                                            className="border-none bg-transparent p-0 text-sm w-full sm:w-28 text-slate-600 dark:text-slate-200 focus:ring-0 cursor-pointer placeholder-slate-400"
+                                        />
+                                    </div>
                                 </div>
 
-                                {/* Filtro Fecha */}
-                                <div className="flex-shrink-0 w-44 sm:w-auto sm:min-w-[150px] sm:flex-1 sm:max-w-[200px]">
-                                    <select
-                                        className="w-full rounded-lg border-slate-200 text-sm py-2 pl-3 pr-9 
-                                 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 
-                                 bg-white text-slate-700 hover:border-slate-300 transition-all
-                                 appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2020%2020%22%3E%3Cpath%20stroke%3D%22%236b7280%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20stroke-width%3D%221.5%22%20d%3D%22m6%208%204%204%204-4%22%2F%3E%3C%2Fsvg%3E')] bg-[length:1.25rem] bg-[center_right_0.5rem] bg-no-repeat"
-                                        value={filterFecha}
-                                        onChange={(e) => setFilterFecha(e.target.value)}
+                                {/* 5. BOTÓN LIMPIAR FILTROS */}
+                                {(filterEstado !== 'all' || filterPrioridad !== 'all' || filterUsuario !== 'all' || filterFecha !== 'all' || startDate || endDate) && (
+                                    <button
+                                        onClick={() => {
+                                            setFilterEstado('all');
+                                            setFilterPrioridad('all');
+                                            setFilterUsuario('all');
+                                            setFilterFecha('all');
+                                            setStartDate('');
+                                            setEndDate('');
+                                        }}
+                                        className="w-full sm:w-auto px-4 py-2 text-xs font-medium text-slate-600 dark:text-slate-400 
+                hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-all
+                border border-dashed border-slate-300 dark:border-slate-600 whitespace-nowrap"
                                     >
-                                        <option value="all">Cualquier fecha</option>
-                                        <option value="today">Hoy</option>
-                                        <option value="week">Esta semana</option>
-                                        <option value="overdue">Vencidas</option>
-                                    </select>
-                                </div>
-
+                                        Limpiar filtros
+                                    </button>
+                                )}
                             </div>
-
-                            {/* Botón Limpiar Filtros (si hay filtros activos) */}
-                            {(filterEstado !== 'all' || filterPrioridad !== 'all' || filterUsuario !== 'all' || filterFecha !== 'all') && (
-                                <button
-                                    onClick={() => {
-                                        setFilterEstado('all');
-                                        setFilterPrioridad('all');
-                                        setFilterUsuario('all');
-                                        setFilterFecha('all');
-                                    }}
-                                    className="flex-shrink-0 px-3 py-2 text-xs font-medium text-slate-600 
-                             hover:text-slate-900 hover:bg-slate-50 rounded-lg transition-all
-                             border border-slate-200 hover:border-slate-300 whitespace-nowrap"
-                                >
-                                    Limpiar filtros
-                                </button>
-                            )}
-
                         </div>
                     </div>
                 </div>
 
-                {/* 3. AREA DE CONTENIDO PRINCIPAL */}
-                <div className="flex-1 bg-slate-50 overflow-hidden relative">
+                <div className="flex-1 bg-slate-50 dark:bg-slate-950 overflow-hidden relative">
                     {loading ? (
-                        <div className="flex flex-col items-center justify-center h-full text-slate-400 pt-4">
+                        <div className="flex flex-col items-center justify-center h-full text-slate-400 dark:text-slate-500 pt-4">
                             <svg
                                 viewBox="0 0 40 4"
                                 className="w-24 h-1 overflow-visible"
@@ -2196,7 +2228,6 @@ Estados permitidos: En Progreso, Pendiente y Completada.`,
 
                     ) : (
                         <div className="h-full overflow-y-auto p-4 md:p-6 custom-scrollbar">
-                            {/* Aquí renderizas tus componentes existentes, se adaptarán al contenedor */}
                             {viewMode === 'kanban' && <KanbanBoard />}
                             {viewMode === 'list' && <ListBoard />}
                             {viewMode === 'timeline' && <TimelineBoard />}
@@ -2205,37 +2236,34 @@ Estados permitidos: En Progreso, Pendiente y Completada.`,
                 </div>
             </div>
 
-            {/* Modal de Creación/Edición de Tarea */}
-            {/* Modal de Creación/Edición de Tarea */}
             {isModalOpen && (
-                <div className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
-                    <div className="bg-white w-full max-w-4xl rounded-3xl shadow-2xl overflow-hidden animate-slide-up max-h-[90vh] overflow-y-auto">
-                        <div className="px-8 py-5 border-b border-slate-100 flex justify-between items-center bg-white sticky top-0 z-10">
+                <div className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-slate-900/60 dark:bg-black/70 backdrop-blur-sm animate-fade-in">
+                    <div className="bg-white dark:bg-slate-900 w-full max-w-4xl rounded-3xl shadow-2xl overflow-hidden animate-slide-up max-h-[90vh] overflow-y-auto border border-slate-200 dark:border-slate-800">
+                        <div className="px-8 py-5 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-white dark:bg-slate-900 sticky top-0 z-10">
                             <div>
-                                <h3 className="text-2xl font-black text-slate-800 flex items-center gap-3">
+                                <h3 className="text-2xl font-black text-slate-800 dark:text-white flex items-center gap-3">
                                     {editingTask ? <Edit2 className="text-indigo-500" /> : <Plus className="text-indigo-500" />}
                                     {editingTask ? 'Editar Tarea' : 'Nueva Tarea'}
                                 </h3>
-                                <p className="text-sm text-slate-500 mt-1">Completa la información necesaria para el proyecto</p>
+                                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Completa la información necesaria para el proyecto</p>
                             </div>
                             <button
                                 onClick={handleCancelAndCleanup}
-                                className="text-slate-400 hover:text-slate-600 transition-colors p-2 hover:bg-slate-100 rounded-full"
+                                className="text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 transition-colors p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full"
                             >
                                 <X size={24} />
                             </button>
                         </div>
 
                         <form onSubmit={handleSaveTask} className="p-8 space-y-8">
-                            {/* Título y descripción */}
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                                 <div className="lg:col-span-2">
-                                    <label className="block text-sm font-bold text-slate-700 mb-2 uppercase tracking-wide">Título de la Tarea</label>
+                                    <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2 uppercase tracking-wide">Título de la Tarea</label>
                                     <input
                                         type="text"
                                         required
                                         disabled={!canEditTaskDetails(editingTask)}
-                                        className={`w-full rounded-xl border-2 border-slate-100 focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all px-5 py-4 text-lg font-medium placeholder-slate-400 ${!canEditTaskDetails(editingTask) ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : 'bg-slate-50'}`}
+                                        className={`w-full rounded-xl border-2 border-slate-100 dark:border-slate-700 focus:bg-white dark:focus:bg-slate-800 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all px-5 py-4 text-lg font-medium placeholder-slate-400 ${!canEditTaskDetails(editingTask) ? 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 cursor-not-allowed' : 'bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-100'}`}
                                         value={newTask.titulo}
                                         onChange={e => setNewTask({ ...newTask, titulo: e.target.value })}
                                         placeholder="Ej: Revisar reporte mensual de ventas"
@@ -2243,11 +2271,11 @@ Estados permitidos: En Progreso, Pendiente y Completada.`,
                                 </div>
 
                                 <div className="lg:col-span-2">
-                                    <label className="block text-sm font-bold text-slate-700 mb-2 uppercase tracking-wide">Descripción</label>
+                                    <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2 uppercase tracking-wide">Descripción</label>
                                     <textarea
                                         rows={4}
                                         disabled={!canEditTaskDetails(editingTask)}
-                                        className={`w-full rounded-xl border-2 border-slate-100 focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all px-5 py-4 text-base placeholder-slate-400 ${!canEditTaskDetails(editingTask) ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : 'bg-slate-50'}`}
+                                        className={`w-full rounded-xl border-2 border-slate-100 dark:border-slate-700 focus:bg-white dark:focus:bg-slate-800 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all px-5 py-4 text-base placeholder-slate-400 ${!canEditTaskDetails(editingTask) ? 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 cursor-not-allowed' : 'bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-100'}`}
                                         value={newTask.descripcion}
                                         onChange={e => setNewTask({ ...newTask, descripcion: e.target.value })}
                                         placeholder="Describe detalladamente la tarea, objetivos, requisitos y cualquier información relevante..."
@@ -2255,28 +2283,25 @@ Estados permitidos: En Progreso, Pendiente y Completada.`,
                                 </div>
                             </div>
 
-                            {/* Selectores mejorados */}
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                 <CustomSelector
                                     options={prioridades}
                                     value={newTask.prioridad_id}
-                                    // CORRECCIÓN TS: Añadido tipo explícito (value: string | string[])
                                     onChange={(value: string | string[]) => setNewTask({ ...newTask, prioridad_id: value as string })}
                                     placeholder="Seleccionar..."
                                     label="Prioridad"
-                                    icon={Star}
+                                    icon={Target}
                                     searchable={false}
                                     disabled={!canEditTaskDetails(editingTask)}
                                     getDisplayValue={(p: any) => p.nombre}
                                     getSearchValue={(p: any) => p.nombre}
+                                    className="!bg-white dark:!bg-slate-800 !text-slate-700 dark:!text-slate-300 !border-slate-200 dark:!border-slate-700"
                                 />
 
-                                {/* --- Selector de Responsable --- */}
-
+                                {/* Para usuarios normales, el selector de responsable está deshabilitado y asignado a sí mismo */}
                                 <CustomSelector
                                     options={usuariosParaAsignar}
-                                    value={newTask.asignado_a}
-                                    // CORRECCIÓN TS: Añadido tipo explícito
+                                    value={profile?.rol_nombre === 'Usuario' ? profile.id : newTask.asignado_a}
                                     onChange={(value: string | string[]) => {
                                         const selectedUser = usuariosParaAsignar.find(u => u.id === value);
                                         setNewTask(prev => ({
@@ -2285,17 +2310,17 @@ Estados permitidos: En Progreso, Pendiente y Completada.`,
                                             departamento_id: selectedUser?.departamento_id || ''
                                         }));
                                     }}
-                                    placeholder="Seleccionar responsable..."
+                                    placeholder={profile?.rol_nombre === 'Usuario' ? 'Asignado a ti mismo' : 'Seleccionar responsable...'}
                                     label="Responsable"
                                     icon={UserIcon}
                                     searchable={true}
-                                    disabled={!canEditTaskDetails(editingTask)}
+                                    disabled={!canEditTaskDetails(editingTask) || profile?.rol_nombre === 'Usuario'}
                                     getDisplayValue={(u: any) => u.nombre_completo}
                                     getSearchValue={(u: any) => u.nombre_completo}
                                     getAvatar={(u: any) => u.avatar_url}
+                                    className="!bg-white dark:!bg-slate-800 !text-slate-700 dark:!text-slate-300 !border-slate-200 dark:!border-slate-700"
                                 />
 
-                                {/* --- Selector de Departamento (Solo Lectura) --- */}
                                 <CustomSelector
                                     options={departamentos}
                                     value={newTask.departamento_id}
@@ -2307,17 +2332,17 @@ Estados permitidos: En Progreso, Pendiente y Completada.`,
                                     disabled={true}
                                     getDisplayValue={(d: any) => d.nombre}
                                     getSearchValue={(d: any) => d.nombre}
+                                    className="!bg-white dark:!bg-slate-800 !text-slate-700 dark:!text-slate-300 !border-slate-200 dark:!border-slate-700"
                                 />
 
-                                {/* --- Selector de Colaboradores (Nuevo) --- */}
                                 <div className="md:col-span-2 lg:col-span-3">
                                     <CustomSelector
                                         options={usuariosParaAsignar.filter(u =>
-                                            (!newTask.departamento_id || u.departamento_id === newTask.departamento_id) &&
+                                            // Solo usuarios del mismo departamento que el creador/usuario actual
+                                            u.departamento_id === (profile?.departamento_id || newTask.departamento_id) &&
                                             u.id !== newTask.asignado_a
                                         )}
                                         value={newTask.colaboradores}
-                                        // CORRECCIÓN TS: Añadido tipo explícito
                                         onChange={(val: string | string[]) => setNewTask({ ...newTask, colaboradores: val as string[] })}
                                         placeholder="Añadir colaboradores extra..."
                                         label="Colaboradores (Mismo Departamento)"
@@ -2325,35 +2350,38 @@ Estados permitidos: En Progreso, Pendiente y Completada.`,
                                         multiple={true}
                                         searchable={true}
                                         disabled={!canEditTaskDetails(editingTask)}
+                                        getDisplayValue={(u: any) => u.nombre_completo}
+                                        getSearchValue={(u: any) => u.nombre_completo}
+                                        getAvatar={(u: any) => u.avatar_url}
+
+                                        className="!bg-white dark:!bg-slate-800 !text-slate-700 dark:!text-slate-300 !border-slate-200 dark:!border-slate-700"
                                     />
                                 </div>
                             </div>
 
-                            {/* Fechas */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50 p-6 rounded-2xl border border-slate-100">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50 dark:bg-slate-800 p-6 rounded-2xl border border-slate-100 dark:border-slate-700">
                                 <div>
-                                    <label className="block text-sm font-bold text-slate-700 mb-2 uppercase tracking-wide">Inicio</label>
+                                    <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2 uppercase tracking-wide">Inicio</label>
                                     <input
                                         type="date"
                                         disabled={!canEditTaskDetails(editingTask)}
-                                        className={`w-full rounded-xl border-none shadow-sm focus:ring-2 focus:ring-indigo-500 transition-all px-4 py-3 ${!canEditTaskDetails(editingTask) ? 'bg-slate-200 text-slate-500 cursor-not-allowed' : 'bg-white'}`}
+                                        className={`w-full rounded-xl border-none shadow-sm focus:ring-2 focus:ring-indigo-500 transition-all px-4 py-3 ${!canEditTaskDetails(editingTask) ? 'bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400 cursor-not-allowed' : 'bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200'}`}
                                         value={newTask.fecha_inicio}
                                         onChange={(e) => setNewTask({ ...newTask, fecha_inicio: e.target.value })}
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-bold text-slate-700 mb-2 uppercase tracking-wide">Vencimiento</label>
+                                    <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2 uppercase tracking-wide">Vencimiento</label>
                                     <input
                                         type="date"
                                         disabled={!canEditTaskDetails(editingTask)}
-                                        className={`w-full rounded-xl border-none shadow-sm focus:ring-2 focus:ring-indigo-500 transition-all px-4 py-3 ${!canEditTaskDetails(editingTask) ? 'bg-slate-200 text-slate-500 cursor-not-allowed' : 'bg-white'}`}
+                                        className={`w-full rounded-xl border-none shadow-sm focus:ring-2 focus:ring-indigo-500 transition-all px-4 py-3 ${!canEditTaskDetails(editingTask) ? 'bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400 cursor-not-allowed' : 'bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200'}`}
                                         value={newTask.fecha_fin}
                                         onChange={(e) => setNewTask({ ...newTask, fecha_fin: e.target.value })}
                                     />
                                 </div>
                             </div>
 
-                            {/* Zona de adjuntos - SOLO visible si tiene permisos de edición */}
                             {canEditTaskDetails(editingTask) && (
                                 <div className="mt-4">
                                     <FilePondComponent
@@ -2363,7 +2391,7 @@ Estados permitidos: En Progreso, Pendiente y Completada.`,
                                         maxFiles={5}
                                         name="files"
                                         credits={false}
-                                        labelIdle={`<div class="flex flex-col items-center gap-3 text-slate-400 group-hover:text-indigo-600 transition-colors cursor-pointer"><div class="p-4 bg-slate-100 rounded-full group-hover:bg-indigo-100 transition-colors"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-indigo-500"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg></div><div><span class="text-base font-bold block text-slate-600">Subir archivos adjuntos</span><span class="text-sm text-slate-400 block mt-1">Soporta: PDF, DOC, XLS, JPG, PNG (máx. 10MB)</span></div></div>`}
+                                        labelIdle={`<div class="flex flex-col items-center gap-3 text-slate-400 group-hover:text-indigo-600 transition-colors cursor-pointer"><div class="p-4 bg-slate-100 dark:bg-slate-800 rounded-full group-hover:bg-indigo-100 dark:group-hover:bg-indigo-900/30 transition-colors"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-indigo-500 dark:text-indigo-400"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg></div><div><span class="text-base font-bold block text-slate-600 dark:text-slate-300">Subir archivos adjuntos</span><span class="text-sm text-slate-400 dark:text-slate-500 block mt-1">Soporta: PDF, DOC, XLS, JPG, PNG (máx. 10MB)</span></div></div>`}
                                         server={{
                                             process: async (fieldName: string, file: File, metadata: any, load: any, error: any, progress: any, abort: any) => {
                                                 const fileExt = file.name.split('.').pop();
@@ -2385,12 +2413,11 @@ Estados permitidos: En Progreso, Pendiente y Completada.`,
                                 </div>
                             )}
 
-                            {/* Botones de acción */}
-                            <div className="flex justify-end gap-4 pt-4 border-t border-slate-100 sticky bottom-0 bg-white pb-4">
+                            <div className="flex justify-end gap-4 pt-4 border-t border-slate-100 dark:border-slate-800 sticky bottom-0 bg-white dark:bg-slate-900 pb-4">
                                 <button
                                     type="button"
                                     onClick={handleCancelAndCleanup}
-                                    className="px-6 py-3 rounded-xl font-bold text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors"
+                                    className="px-6 py-3 rounded-xl font-bold text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
                                 >
                                     {canEditTaskDetails(editingTask) ? 'Cancelar' : 'Cerrar'}
                                 </button>
@@ -2410,11 +2437,10 @@ Estados permitidos: En Progreso, Pendiente y Completada.`,
                 </div>
             )}
 
-            {/* Modal de Detalles de Tarea */}
             {isDetailModalOpen && selectedTaskForDetail && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-md animate-fade-in">
-                    <div className="bg-white w-full max-w-5xl rounded-3xl shadow-2xl overflow-hidden animate-slide-up max-h-[95vh] overflow-y-auto">
-                        <div className="px-8 py-6 border-b border-slate-100 flex justify-between items-start bg-white sticky top-0 z-10">
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/70 dark:bg-black/80 backdrop-blur-md animate-fade-in">
+                    <div className="bg-white dark:bg-slate-900 w-full max-w-5xl rounded-3xl shadow-2xl overflow-hidden animate-slide-up max-h-[95vh] overflow-y-auto border border-slate-200 dark:border-slate-800">
+                        <div className="px-8 py-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-start bg-white dark:bg-slate-900 sticky top-0 z-10">
                             <div className="flex flex-col gap-2">
                                 <div className="flex items-center gap-3">
                                     {selectedTaskForDetail.prioridad && (
@@ -2424,9 +2450,9 @@ Estados permitidos: En Progreso, Pendiente y Completada.`,
                                             level={selectedTaskForDetail.prioridad.nivel}
                                         />
                                     )}
-                                    <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">ID: {selectedTaskForDetail.id.slice(0, 8)}</span>
+                                    <span className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">ID: {selectedTaskForDetail.id.slice(0, 8)}</span>
                                 </div>
-                                <h3 className="text-2xl font-black text-slate-800 leading-tight">
+                                <h3 className="text-2xl font-black text-slate-800 dark:text-white leading-tight">
                                     {selectedTaskForDetail.titulo}
                                 </h3>
                             </div>
@@ -2435,20 +2461,39 @@ Estados permitidos: En Progreso, Pendiente y Completada.`,
                                     setIsDetailModalOpen(false);
                                     setSelectedTaskForDetail(null);
                                 }}
-                                className="text-slate-400 hover:text-slate-600 transition-colors p-2 hover:bg-slate-100 rounded-full"
+                                className="text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 transition-colors p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full"
                             >
                                 <X size={28} />
                             </button>
                         </div>
 
                         <div className="p-8">
+                            {(selectedTaskForDetail.estado?.nombre === 'Rechazada' || selectedTaskForDetail.estado?.nombre === 'Bloqueada') && (
+                                <div className={`mb-8 p-4 rounded-xl border flex items-start gap-3 animate-fade-in ${
+                                    selectedTaskForDetail.estado.nombre === 'Rechazada' 
+                                    ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-800 dark:text-red-300'
+                                    : 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300'
+                                }`}>
+                                    <AlertCircle size={24} className="shrink-0 mt-0.5" />
+                                    <div>
+                                        <h4 className="font-bold text-sm uppercase tracking-wide mb-1">
+                                            {selectedTaskForDetail.estado.nombre === 'Rechazada' ? 'Motivo del Rechazo' : 'Motivo del Bloqueo'}
+                                        </h4>
+                                        <p className="text-base leading-relaxed">
+                                            {selectedTaskForDetail.estado.nombre === 'Rechazada' 
+                                                ? (selectedTaskForDetail.motivo_rechazo || "Sin motivo especificado.")
+                                                : (selectedTaskForDetail.motivo_bloqueo || "Sin motivo especificado.")
+                                            }
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
                             <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
-                                {/* Información principal */}
                                 <div className="lg:col-span-2 space-y-8">
-                                    <div className="prose prose-slate max-w-none">
-                                        <h4 className="text-sm font-bold text-slate-400 uppercase tracking-wide mb-3">Descripción</h4>
-                                        <div className="bg-slate-50 rounded-2xl p-6 border border-slate-100">
-                                            <p className="text-slate-700 whitespace-pre-wrap leading-relaxed">
+                                    <div className="prose prose-slate dark:prose-invert max-w-none">
+                                        <h4 className="text-sm font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wide mb-3">Descripción</h4>
+                                        <div className="bg-slate-50 dark:bg-slate-800 rounded-2xl p-6 border border-slate-100 dark:border-slate-700">
+                                            <p className="text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed">
                                                 {selectedTaskForDetail.descripcion || 'Sin descripción disponible.'}
                                             </p>
                                         </div>
@@ -2456,9 +2501,10 @@ Estados permitidos: En Progreso, Pendiente y Completada.`,
 
                                     <div>
                                         <div className="flex items-center justify-between mb-4">
-                                            <h4 className="text-sm font-bold text-slate-400 uppercase tracking-wide">Comentarios y Actividad</h4>
+                                            <h4 className="text-sm font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wide">Comentarios y Actividad</h4>
                                         </div>
                                         <div className="flex flex-col h-full max-h-150">
+                                            {/* 1. LISTA DE COMENTARIOS*/}
                                             <div className="flex-1 pr-2 space-y-4 pb-4">
                                                 {selectedTaskForDetail.comentarios && selectedTaskForDetail.comentarios.length > 0 ? (
                                                     selectedTaskForDetail.comentarios.map(comentario => (
@@ -2471,22 +2517,19 @@ Estados permitidos: En Progreso, Pendiente y Completada.`,
                                                                     showTooltip={false}
                                                                 />
                                                             </div>
-                                                            <div className="bg-white border border-slate-200 rounded-2xl rounded-tl-none p-4 shadow-sm flex-1 group hover:border-indigo-200 transition-colors">
-                                                                {/* Cabecera del Comentario */}
+                                                            <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl rounded-tl-none p-4 shadow-sm flex-1 group hover:border-indigo-200 dark:hover:border-indigo-800 transition-colors">
                                                                 <div className="flex justify-between items-start mb-2">
                                                                     <div className="flex flex-col">
-                                                                        <span className="font-bold text-slate-800 text-sm">
+                                                                        <span className="font-bold text-slate-800 dark:text-slate-100 text-sm">
                                                                             {comentario.usuario?.nombre_completo}
                                                                         </span>
-                                                                        <span className="text-xs text-slate-400 font-medium">
+                                                                        <span className="text-xs text-slate-400 dark:text-slate-500 font-medium">
                                                                             {new Date(comentario.created_at).toLocaleString('es-ES', {
                                                                                 day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
                                                                             })}
                                                                         </span>
                                                                     </div>
 
-                                                                    {/* --- BOTONES DE ACCIÓN (Editar/Eliminar) --- */}
-                                                                    {/* Solo se muestran si cumple la regla de tiempo y autoría */}
                                                                     {canManageComment(comentario) && (
                                                                         <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                                                             <button
@@ -2494,7 +2537,7 @@ Estados permitidos: En Progreso, Pendiente y Completada.`,
                                                                                     setEditingCommentId(comentario.id);
                                                                                     setEditingCommentText(comentario.contenido);
                                                                                 }}
-                                                                                className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
+                                                                                className="p-1.5 text-slate-400 dark:text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-all"
                                                                                 title="Editar comentario"
                                                                                 disabled={editingCommentId === comentario.id}
                                                                             >
@@ -2502,7 +2545,7 @@ Estados permitidos: En Progreso, Pendiente y Completada.`,
                                                                             </button>
                                                                             <button
                                                                                 onClick={() => handleDeleteComment(comentario.id)}
-                                                                                className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                                                                                className="p-1.5 text-slate-400 dark:text-slate-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-all"
                                                                                 title="Eliminar comentario"
                                                                                 disabled={editingCommentId === comentario.id}
                                                                             >
@@ -2512,11 +2555,10 @@ Estados permitidos: En Progreso, Pendiente y Completada.`,
                                                                     )}
                                                                 </div>
 
-                                                                {/* --- CONTENIDO DEL COMENTARIO (Lectura vs Edición) --- */}
                                                                 {editingCommentId === comentario.id ? (
                                                                     <div className="mt-2 animate-fade-in">
                                                                         <textarea
-                                                                            className="w-full rounded-lg border-indigo-300 shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-sm p-2 min-h-[80px]"
+                                                                            className="w-full rounded-lg border-indigo-300 dark:border-indigo-700 shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 text-sm p-2 min-h-[80px] bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200"
                                                                             value={editingCommentText}
                                                                             onChange={(e) => setEditingCommentText(e.target.value)}
                                                                             autoFocus
@@ -2527,7 +2569,7 @@ Estados permitidos: En Progreso, Pendiente y Completada.`,
                                                                                     setEditingCommentId(null);
                                                                                     setEditingCommentText('');
                                                                                 }}
-                                                                                className="px-3 py-1.5 text-xs font-medium text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-md transition-colors"
+                                                                                className="px-3 py-1.5 text-xs font-medium text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-md transition-colors"
                                                                             >
                                                                                 Cancelar
                                                                             </button>
@@ -2540,14 +2582,13 @@ Estados permitidos: En Progreso, Pendiente y Completada.`,
                                                                         </div>
                                                                     </div>
                                                                 ) : (
-                                                                    <p className="text-slate-600 text-sm whitespace-pre-wrap leading-relaxed">
+                                                                    <p className="text-slate-600 dark:text-slate-300 text-sm whitespace-pre-wrap leading-relaxed">
                                                                         {comentario.contenido}
                                                                     </p>
                                                                 )}
 
-                                                                {/* --- ADJUNTOS DEL COMENTARIO --- */}
                                                                 {(selectedTaskForDetail.adjuntos || []).filter(adj => adj.comentario_id === comentario.id).length > 0 && (
-                                                                    <div className="mt-3 pt-3 border-t border-slate-100 flex flex-wrap gap-2">
+                                                                    <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-700 flex flex-wrap gap-2">
                                                                         {(selectedTaskForDetail.adjuntos || [])
                                                                             .filter(adj => adj.comentario_id === comentario.id)
                                                                             .map(adj => {
@@ -2558,11 +2599,11 @@ Estados permitidos: En Progreso, Pendiente y Completada.`,
                                                                                         href={data.publicUrl}
                                                                                         target="_blank"
                                                                                         rel="noopener noreferrer"
-                                                                                        className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-200 rounded-lg text-xs transition-all group/file"
+                                                                                        className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 dark:bg-slate-700 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 border border-slate-200 dark:border-slate-600 hover:border-indigo-200 dark:hover:border-indigo-700 rounded-lg text-xs transition-all group/file"
                                                                                         title={adj.nombre_archivo}
                                                                                     >
                                                                                         <FileText size={12} className="text-indigo-500" />
-                                                                                        <span className="text-slate-600 font-medium truncate max-w-[120px]">
+                                                                                        <span className="text-slate-600 dark:text-slate-300 font-medium truncate max-w-[120px]">
                                                                                             {adj.nombre_archivo}
                                                                                         </span>
                                                                                         <Eye size={10} className="text-slate-400 opacity-0 group-hover/file:opacity-100 transition-opacity" />
@@ -2576,145 +2617,166 @@ Estados permitidos: En Progreso, Pendiente y Completada.`,
                                                         </div>
                                                     ))
                                                 ) : (
-                                                    <div className="text-center py-12 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
-                                                        <MessageSquare size={40} className="mx-auto mb-3 text-slate-300" />
-                                                        <p className="text-slate-500 font-medium">No hay comentarios aún</p>
-                                                        <p className="text-slate-400 text-sm">Sé el primero en comentar sobre esta tarea</p>
+                                                    <div className="text-center py-12 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700">
+                                                        <MessageSquare size={40} className="mx-auto mb-3 text-slate-300 dark:text-slate-600" />
+                                                        <p className="text-slate-500 dark:text-slate-400 font-medium">No hay comentarios aún</p>
+                                                        <p className="text-slate-400 dark:text-slate-500 text-sm">Sé el primero en comentar sobre esta tarea</p>
                                                     </div>
                                                 )}
                                             </div>
 
-                                            {/* --- FORMULARIO DE NUEVO COMENTARIO (FIJO EN LA PARTE INFERIOR) --- */}
-                                            <div className="border-t border-slate-200 bg-white pt-4 mt-4">
-                                                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
-                                                    <label className="text-xs font-bold text-slate-400 uppercase mb-2 block justify-between">
-                                                        <span>Escribe un comentario</span>
-                                                        {tempCommentAttachments.length > 0 && (
-                                                            <span className="text-indigo-600">{tempCommentAttachments.length} archivos adjuntos</span>
-                                                        )}
-                                                    </label>
+                                            {/* 2. FORMULARIO DE COMENTARIOS (Solo se renderiza si NO está bloqueado) */}
+                                            {!(selectedTaskForDetail.estado?.nombre === 'Vencida' &&
+                                                selectedTaskForDetail.creador_id !== profile?.id &&
+                                                profile?.rol_nombre !== 'Admin') && (
+                                                    <div className="border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 pt-4 mt-4 animate-fade-in">
+                                                        <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700">
+                                                            <label className="text-xs font-bold text-slate-400 dark:text-slate-500 mb-2 block justify-between">
+                                                                <span>Escribe un comentario</span>
+                                                                {tempCommentAttachments.length > 0 && (
+                                                                    <span className="text-indigo-600 dark:text-indigo-400">{tempCommentAttachments.length} archivos adjuntos</span>
+                                                                )}
+                                                            </label>
 
-                                                    <textarea
-                                                        className="w-full rounded-xl border-slate-200 bg-white shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent p-3 text-sm min-h-[80px] resize-none"
-                                                        placeholder="Escribe tu respuesta o actualización aquí..."
-                                                        value={newCommentText}
-                                                        onChange={(e) => setNewCommentText(e.target.value)}
-                                                    ></textarea>
+                                                            <textarea
+                                                                className="w-full rounded-xl border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-700 shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent p-3 text-sm min-h-[80px] resize-none text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500"
+                                                                placeholder="Escribe tu respuesta o actualización aquí..."
+                                                                value={newCommentText}
+                                                                onChange={(e) => setNewCommentText(e.target.value)}
+                                                            ></textarea>
 
-                                                    {/* FilePond Compacto */}
-                                                    <div className="mt-3">
-                                                        <FilePondComponent
-                                                            files={commentFiles}
-                                                            onupdatefiles={setCommentFiles}
-                                                            allowMultiple={true}
-                                                            maxFiles={3}
-                                                            name="files"
-                                                            credits={false}
-                                                            labelIdle='<span class="text-xs text-slate-400 cursor-pointer hover:text-indigo-600 transition-colors flex items-center justify-center gap-2"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg> Adjuntar archivos</span>'
-                                                            server={{
-                                                                process: async (fieldName: string, file: File, metadata: any, load: any, error: any, progress: any, abort: any) => {
-                                                                    const fileExt = file.name.split('.').pop();
-                                                                    const fileName = `${Math.random()}.${fileExt}`;
-                                                                    const filePath = `comentarios_adjuntos/${fileName}`;
+                                                            <div className="mt-3">
+                                                                <FilePondComponent
+                                                                    files={commentFiles}
+                                                                    onupdatefiles={setCommentFiles}
+                                                                    allowMultiple={true}
+                                                                    maxFiles={3}
+                                                                    name="files"
+                                                                    credits={false}
+                                                                    labelIdle='<span class="text-xs text-slate-400 dark:text-slate-500 cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors flex items-center justify-center gap-2"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg> Adjuntar archivos</span>'
+                                                                    server={{
+                                                                        process: async (fieldName: string, file: File, metadata: any, load: any, error: any, progress: any, abort: any) => {
+                                                                            const fileExt = file.name.split('.').pop();
+                                                                            const fileName = `${Math.random()}.${fileExt}`;
+                                                                            const filePath = `comentarios_adjuntos/${fileName}`;
 
-                                                                    const { data, error: uploadError } = await supabase.storage
-                                                                        .from('adjuntos')
-                                                                        .upload(filePath, file);
+                                                                            const { data, error: uploadError } = await supabase.storage
+                                                                                .from('adjuntos')
+                                                                                .upload(filePath, file);
 
-                                                                    if (uploadError) { error('Error'); return; }
+                                                                            if (uploadError) { error('Error'); return; }
 
-                                                                    setTempCommentAttachments(prev => [...prev, {
-                                                                        path: data.path,
-                                                                        name: file.name,
-                                                                        size: file.size,
-                                                                        type: file.type
-                                                                    }]);
-                                                                    load(data.path);
-                                                                },
-                                                                revert: async (uniqueFileId: string, load: any, error: any) => {
-                                                                    const { error: deleteError } = await supabase.storage
-                                                                        .from('adjuntos')
-                                                                        .remove([uniqueFileId]);
+                                                                            setTempCommentAttachments(prev => [...prev, {
+                                                                                path: data.path,
+                                                                                name: file.name,
+                                                                                size: file.size,
+                                                                                type: file.type
+                                                                            }]);
+                                                                            load(data.path);
+                                                                        },
+                                                                        revert: async (uniqueFileId: string, load: any, error: any) => {
+                                                                            const { error: deleteError } = await supabase.storage
+                                                                                .from('adjuntos')
+                                                                                .remove([uniqueFileId]);
 
-                                                                    if (deleteError) { error('Error'); return; }
+                                                                            if (deleteError) { error('Error'); return; }
 
-                                                                    setTempCommentAttachments(prev => prev.filter(f => f.path !== uniqueFileId));
-                                                                    load();
-                                                                }
-                                                            }}
-                                                            className="filepond-compact"
-                                                        />
+                                                                            setTempCommentAttachments(prev => prev.filter(f => f.path !== uniqueFileId));
+                                                                            load();
+                                                                        }
+                                                                    }}
+                                                                    className="filepond-compact"
+                                                                />
+                                                            </div>
+
+                                                            <div className="flex justify-end mt-2">
+                                                                <button
+                                                                    onClick={handlePostComment}
+                                                                    disabled={isSubmittingComment || (!newCommentText.trim() && tempCommentAttachments.length === 0)}
+                                                                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-md transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                                >
+                                                                    {isSubmittingComment ? <RefreshCw size={16} className="animate-spin" /> : <MessageSquare size={16} />}
+                                                                    Publicar Comentario
+                                                                </button>
+                                                            </div>
+                                                        </div>
                                                     </div>
-
-                                                    <div className="flex justify-end mt-2">
-                                                        <button
-                                                            onClick={handlePostComment}
-                                                            disabled={isSubmittingComment || (!newCommentText.trim() && tempCommentAttachments.length === 0)}
-                                                            className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-md transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                                                        >
-                                                            {isSubmittingComment ? <RefreshCw size={16} className="animate-spin" /> : <MessageSquare size={16} />}
-                                                            Publicar Comentario
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            </div>
+                                                )}
                                         </div>
                                     </div>
                                 </div>
 
-                                {/* Panel lateral */}
                                 <div className="space-y-6">
-                                    <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
-                                        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wide mb-4">Estado Actual</h4>
-                                        <div className="flex items-center gap-3 mb-4 p-3 bg-slate-50 rounded-xl border border-slate-100">
+                                    <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200 dark:border-slate-700 shadow-sm">
+                                        <h4 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wide mb-4">Estado Actual</h4>
+
+                                        {/* 1. VISUALIZACIÓN DEL ESTADO (Siempre visible) */}
+                                        <div className="flex items-center gap-3 mb-4 p-3 bg-slate-50 dark:bg-slate-700/50 rounded-xl border border-slate-100 dark:border-slate-700">
                                             <div
-                                                className="w-4 h-4 rounded-full shadow-sm ring-2 ring-white"
+                                                className="w-4 h-4 rounded-full shadow-sm ring-2 ring-white dark:ring-slate-800"
                                                 style={{ backgroundColor: selectedTaskForDetail.estado?.color }}
                                             />
-                                            <span className="font-bold text-slate-800 text-lg">
+                                            <span className="font-bold text-slate-800 dark:text-slate-100 text-lg">
                                                 {selectedTaskForDetail.estado?.nombre}
                                             </span>
                                         </div>
 
-                                        <label className="text-xs font-bold text-slate-500 mb-2 block">Cambiar estado:</label>
-                                        <select
-                                            className="w-full rounded-xl border-slate-200 bg-white shadow-sm focus:ring-2 focus:ring-indigo-500 px-3 py-2.5 text-sm font-medium"
-                                            value={selectedTaskForDetail.estado_id}
-                                            onChange={(e) => handleUpdateTaskStatus(selectedTaskForDetail.id, e.target.value)}
-                                            disabled={!canChangeStatus(selectedTaskForDetail)}
-                                        >
-                                            {getAllowedStatuses(selectedTaskForDetail.estado_id).map(estado => (
-                                                <option key={estado.id} value={estado.id}>{estado.nombre}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-
-                                    <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
-                                        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wide mb-4">Responsable</h4>
-                                        {selectedTaskForDetail.asignado ? (
-                                            <div className="flex items-center gap-4">
-                                                <UserAvatar
-                                                    url={selectedTaskForDetail.asignado.avatar_url}
-                                                    name={selectedTaskForDetail.asignado.nombre_completo}
-                                                    size="lg"
-                                                />
-                                                <div className="overflow-hidden">
-                                                    <div className="font-bold text-slate-900 truncate">
-                                                        {selectedTaskForDetail.asignado.nombre_completo}
-                                                    </div>
-                                                    <div className="text-xs text-slate-500 truncate">
-                                                        {selectedTaskForDetail.asignado.email}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        ) : (
-                                            <div className="text-slate-500 italic text-sm flex items-center gap-2">
-                                                <UserIcon size={16} /> Sin asignar
+                                        {/* 2. SELECTOR DE CAMBIO (Solo se renderiza si tiene permiso) */}
+                                        {canChangeStatus(selectedTaskForDetail) && (
+                                            <div className="animate-fade-in">
+                                                <label className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-2 block">Cambiar estado:</label>
+                                                <select
+                                                    className="w-full rounded-xl border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-700 shadow-sm focus:ring-2 focus:ring-indigo-500 px-3 py-2.5 text-sm font-medium text-slate-800 dark:text-slate-200"
+                                                    value={selectedTaskForDetail.estado_id}
+                                                    onChange={(e) => handleUpdateTaskStatus(selectedTaskForDetail.id, e.target.value)}
+                                                >
+                                                    {getAllowedStatuses(selectedTaskForDetail.estado_id).map(estado => (
+                                                        <option key={estado.id} value={estado.id}>{estado.nombre}</option>
+                                                    ))}
+                                                </select>
                                             </div>
                                         )}
                                     </div>
-                                    <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
-                                        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wide mb-4">Asignado por</h4>
+
+                                    <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200 dark:border-slate-700 shadow-sm">
+                                        <h4 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wide mb-4">Responsable</h4>
+                                        {selectedTaskForDetail.estado?.nombre === 'Vencida' &&
+                                            selectedTaskForDetail.creador_id !== profile?.id &&
+                                            profile?.rol_nombre !== 'Admin' ? (
+                                            <div className="p-4 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm rounded-xl border border-red-100 dark:border-red-800 flex items-start gap-3">
+                                                <AlertCircle size={20} className="shrink-0 mt-0.5" />
+                                                <div className="flex flex-col">
+                                                    <span className="font-bold">Tarea Vencida y Bloqueada</span>
+                                                    <span className="opacity-90">Solo quien te asignó esta tarea ({selectedTaskForDetail.creador?.nombre_completo}) puede reactivarla o comentar.</span>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            selectedTaskForDetail.asignado ? (
+                                                <div className="flex items-center gap-4">
+                                                    <UserAvatar
+                                                        url={selectedTaskForDetail.asignado.avatar_url}
+                                                        name={selectedTaskForDetail.asignado.nombre_completo}
+                                                        size="lg"
+                                                    />
+                                                    <div className="overflow-hidden">
+                                                        <div className="font-bold text-slate-900 dark:text-slate-100 truncate">
+                                                            {selectedTaskForDetail.asignado.nombre_completo}
+                                                        </div>
+                                                        <div className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                                                            {selectedTaskForDetail.asignado.email}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <div className="text-slate-500 dark:text-slate-400 italic text-sm flex items-center gap-2">
+                                                    <UserIcon size={16} /> Sin asignar
+                                                </div>
+                                            )
+                                        )
+                                        }
+                                    </div>
+                                    <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200 dark:border-slate-700 shadow-sm">
+                                        <h4 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wide mb-4">Asignado por</h4>
                                         {selectedTaskForDetail.creador &&
                                             selectedTaskForDetail.creador_id !== selectedTaskForDetail.asignado_a && (
                                                 <div className="flex items-center gap-4">
@@ -2724,17 +2786,16 @@ Estados permitidos: En Progreso, Pendiente y Completada.`,
                                                         size="lg"
                                                     />
                                                     <div className="overflow-hidden">
-                                                        <div className="font-bold text-slate-900 truncate">
+                                                        <div className="font-bold text-slate-900 dark:text-slate-100 truncate">
                                                             {selectedTaskForDetail.creador.nombre_completo}
                                                         </div>
                                                     </div>
                                                 </div>
                                             )}
                                     </div>
-                                    {/* Sección de Colaboradores: Solo se muestra si existen */}
                                     {selectedTaskForDetail.colaboradores && selectedTaskForDetail.colaboradores.length > 0 && (
-                                        <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
-                                            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wide mb-4">
+                                        <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200 dark:border-slate-700 shadow-sm">
+                                            <h4 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wide mb-4">
                                                 Colaboradores
                                             </h4>
 
@@ -2747,10 +2808,10 @@ Estados permitidos: En Progreso, Pendiente y Completada.`,
                                                             size="md"
                                                         />
                                                         <div className="overflow-hidden">
-                                                            <div className="font-bold text-slate-700 text-sm truncate group-hover:text-indigo-600 transition-colors">
+                                                            <div className="font-bold text-slate-700 dark:text-slate-300 text-sm truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
                                                                 {colab.usuario.nombre_completo}
                                                             </div>
-                                                            <div className="text-xs text-slate-400">
+                                                            <div className="text-xs text-slate-400 dark:text-slate-500">
                                                                 Colaborador
                                                             </div>
                                                         </div>
@@ -2759,63 +2820,59 @@ Estados permitidos: En Progreso, Pendiente y Completada.`,
                                             </div>
                                         </div>
                                     )}
-                                    <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
-                                        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wide mb-4">Cronograma</h4>
+                                    <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200 dark:border-slate-700 shadow-sm">
+                                        <h4 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wide mb-4">Cronograma</h4>
                                         <div className="space-y-4">
-                                            <div className="flex justify-between items-center p-3 bg-slate-50 rounded-xl">
-                                                <span className="text-slate-500 text-sm font-medium">Inicio</span>
-                                                <span className="text-slate-900 font-bold">
+                                            <div className="flex justify-between items-center p-3 bg-slate-50 dark:bg-slate-700/50 rounded-xl">
+                                                <span className="text-slate-500 dark:text-slate-400 text-sm font-medium">Inicio</span>
+                                                <span className="text-slate-900 dark:text-slate-100 font-bold">
                                                     {formatFullDate(selectedTaskForDetail.fecha_inicio)}
                                                 </span>
                                             </div>
-                                            <div className="flex justify-between items-center p-3 bg-slate-50 rounded-xl relative overflow-hidden">
+                                            <div className="flex justify-between items-center p-3 bg-slate-50 dark:bg-slate-700/50 rounded-xl relative overflow-hidden">
                                                 {new Date(selectedTaskForDetail.fecha_fin) < new Date() && selectedTaskForDetail.estado?.nombre !== 'Completada' && (
                                                     <div className="absolute left-0 top-0 bottom-0 w-1 bg-red-500"></div>
                                                 )}
-                                                <span className="text-slate-500 text-sm font-medium">Vencimiento</span>
-                                                <span className={`font-bold ${new Date(selectedTaskForDetail.fecha_fin) < new Date() && selectedTaskForDetail.estado?.nombre !== 'Completada' ? 'text-red-600' : 'text-slate-900'}`}>
+                                                <span className="text-slate-500 dark:text-slate-400 text-sm font-medium">Vencimiento</span>
+                                                <span className={`font-bold ${new Date(selectedTaskForDetail.fecha_fin) < new Date() && selectedTaskForDetail.estado?.nombre !== 'Completada' ? 'text-red-600 dark:text-red-400' : 'text-slate-900 dark:text-slate-100'}`}>
                                                     {formatFullDate(selectedTaskForDetail.fecha_fin)}
                                                 </span>
                                             </div>
                                         </div>
                                     </div>
 
-                                    <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
-                                        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wide mb-4">Archivos Adjuntos</h4>
+                                    <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200 dark:border-slate-700 shadow-sm">
+                                        <h4 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wide mb-4">Archivos Adjuntos</h4>
 
-                                        {/* Verificamos si hay archivos en la columna JSON */}
                                         {selectedTaskForDetail.adjuntos && selectedTaskForDetail.adjuntos.length > 0 ? (
                                             <div className="space-y-2">
                                                 {selectedTaskForDetail.adjuntos.map((adjunto) => {
-                                                    // Usamos url_archivo que viene de la tabla
                                                     const { data } = supabase.storage.from('adjuntos').getPublicUrl(adjunto.url_archivo);
 
                                                     return (
                                                         <a
-                                                            key={adjunto.id} // Usamos el ID real de la tabla
+                                                            key={adjunto.id}
                                                             href={data.publicUrl}
                                                             target="_blank"
                                                             rel="noopener noreferrer"
-                                                            className="flex items-center gap-3 p-3 bg-slate-50..."
+                                                            className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-700/50 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 border border-slate-200 dark:border-slate-600 rounded-xl transition-all group"
                                                         >
-                                                            <div className="bg-white p-2 rounded-lg shadow-sm">
+                                                            <div className="bg-white dark:bg-slate-800 p-2 rounded-lg shadow-sm border border-slate-100 dark:border-slate-600">
                                                                 <FileText size={18} className="text-indigo-500" />
                                                             </div>
                                                             <div className="flex-1 min-w-0">
-                                                                {/* Nombre real del archivo */}
-                                                                <p className="text-sm font-medium text-slate-700 truncate">{adjunto.nombre_archivo}</p>
-                                                                {/* Tamaño formateado */}
-                                                                <p className="text-xs text-slate-400">
+                                                                <p className="text-sm font-medium text-slate-700 dark:text-slate-200 truncate">{adjunto.nombre_archivo}</p>
+                                                                <p className="text-xs text-slate-400 dark:text-slate-500">
                                                                     {(adjunto.tamano_bytes ? (adjunto.tamano_bytes / 1024).toFixed(1) + ' KB' : '')}
                                                                 </p>
                                                             </div>
-                                                            <Eye size={14} className="text-slate-400..." />
+                                                            <Eye size={14} className="text-slate-400 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors" />
                                                         </a>
                                                     );
                                                 })}
                                             </div>
                                         ) : (
-                                            <p className="text-slate-400 text-sm text-center py-4 italic">No hay archivos adjuntos</p>
+                                            <p className="text-slate-400 dark:text-slate-500 text-sm text-center py-4 italic">No hay archivos adjuntos</p>
                                         )}
                                     </div>
                                 </div>
@@ -2823,8 +2880,79 @@ Estados permitidos: En Progreso, Pendiente y Completada.`,
                         </div>
                     </div>
                 </div>
-            )
-            }
-        </div >
+            )}
+        {/* Modal para solicitar motivo de rechazo/bloqueo */}
+        {motivoModal.isOpen && (
+            // CAMBIO AQUÍ: z-50 a z-[200] para que aparezca encima del modal de detalles (que es z-[100])
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[200] p-4 animate-fade-in">
+                <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md mx-auto border border-slate-200 dark:border-slate-700 animate-scale-up">
+                    <div className="p-6">
+                        <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-red-100 dark:bg-red-900/30 rounded-lg">
+                                    <AlertCircle size={20} className="text-red-600 dark:text-red-400" />
+                                </div>
+                                <div>
+                                    <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+                                        Motivo de {motivoModal.tipo === 'rechazo' ? 'Rechazo' : 'Bloqueo'}
+                                    </h3>
+                                    <p className="text-sm text-slate-500 dark:text-slate-400">
+                                        Explica por qué la tarea está siendo {motivoModal.tipo === 'rechazo' ? 'rechazada' : 'bloqueada'}.
+                                    </p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={handleMotivoCancel}
+                                className="text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-all"
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                                    Motivo detallado:
+                                </label>
+                                <textarea
+                                    value={motivoTexto}
+                                    onChange={(e) => setMotivoTexto(e.target.value)}
+                                    placeholder="Describe el motivo..."
+                                    className="w-full px-4 py-3 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 resize-none transition-all"
+                                    rows={4}
+                                    autoFocus
+                                />
+                            </div>
+
+                            <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/30 rounded-lg p-3">
+                                <p className="text-xs text-amber-700 dark:text-amber-400 flex items-start gap-2">
+                                    <Info size={14} className="shrink-0 mt-0.5" />
+                                    <span>Este motivo se guardará en el historial y será visible para el creador de la tarea.</span>
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-slate-100 dark:border-slate-700">
+                            <button
+                                onClick={handleMotivoCancel}
+                                className="px-4 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 border border-slate-200 dark:border-slate-700 rounded-xl transition-all"
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={handleMotivoSubmit}
+                                disabled={!motivoTexto.trim()}
+                                className="px-4 py-2.5 text-sm font-medium text-white bg-red-600 hover:bg-red-700 disabled:bg-slate-300 dark:disabled:bg-slate-700 disabled:cursor-not-allowed rounded-xl transition-all shadow-sm shadow-red-500/20"
+                            >
+                                {motivoModal.tipo === 'rechazo' ? 'Confirmar Rechazo' : 'Confirmar Bloqueo'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        )}
+        </div>
+        
     );
+
 }

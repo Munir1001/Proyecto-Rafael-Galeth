@@ -6,10 +6,12 @@ export default {
   content: [
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
-    flowbite.content(), 
+    flowbite.content(),
   ],
-  // CAMBIO IMPORTANTE: En Tailwind v4 usa 'selector' en lugar de 'class'
-  darkMode: 'selector', 
+
+  // ✅ Correcto en Tailwind v4
+  darkMode: 'selector',
+
   theme: {
     extend: {
       colors: {
@@ -17,7 +19,7 @@ export default {
         secondary: '#1e293b',
         background: '#f3f4f6',
         surface: '#ffffff',
-        
+
         prio: {
           baja: '#10B981',
           media: '#F59E0B',
@@ -32,14 +34,27 @@ export default {
           completada: '#10B981',
           vencida: '#DC2626',
           rechazada: '#EF4444',
-        }
+        },
       },
+
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
-      }
+      },
+
+      /* 🔥 SHIMMER SKELETON */
+      keyframes: {
+        shimmer: {
+          '0%': { transform: 'translateX(-100%)' },
+          '100%': { transform: 'translateX(100%)' },
+        },
+      },
+      animation: {
+        shimmer: 'shimmer 1.5s infinite linear',
+      },
     },
   },
+
   plugins: [
     flowbite.plugin(),
   ],
-}
+};
