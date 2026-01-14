@@ -1,31 +1,18 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Card, Spinner, Badge, Progress, Table, TableHead, TableHeadCell, TableBody, TableRow, TableCell } from 'flowbite-react';
+import { Card, Spinner, Badge} from 'flowbite-react';
 import {
   Users, Briefcase, AlertTriangle, TrendingUp, CheckCircle,
   Clock, FileText, Calendar, BarChart2, Target, Award,
   Layout, Activity, Zap, ArrowUp, ArrowDown,
   MessageSquare, Paperclip,
-  CheckSquare, PauseCircle, Download,
+  CheckSquare, PauseCircle,
   BarChart3, PieChart as PieChartIcon
 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../context/AuthContext';
 import PerformanceChart from '../components/charts/PerformanceChart';
+import { ThemeProvider } from "next-themes";
 
-
-// ============= CONFIGURACIÓN =============
-const COLORS = {
-  primary: ['#1E40AF', '#3730A3', '#4C1D95', '#166534', '#065F46', '#1E3A8A', '#14532D', '#7C2D12'],
-  status: {
-    Nueva: '#64748B',
-    Pendiente: '#92400E',
-    'En Progreso': '#1E40AF',
-    Bloqueada: '#991B1B',
-    Completada: '#166534',
-    Vencida: '#7F1D1D',
-    Rechazada: '#6B21A8'
-  }
-};
 
 // ============= TIPOS =============
 interface Tarea {
@@ -437,7 +424,7 @@ const AdminView = () => {
       ? Math.round((completadasATiempo / completadas) * 100)
       : 0; // Si no ha completado nada, se queda en 0 (o puedes poner 100 si prefieres ser optimista)
     // Distribución por estado
-    
+
     const distribucionEstados = data.estados.map(estado => ({
       name: estado.nombre,
       value: data.tareas.filter(t => t.estado_id === estado.id).length,
@@ -477,7 +464,7 @@ const AdminView = () => {
         return created.toDateString() === date.toDateString();
       });
       return {
-        name: date.toLocaleDateString('es-EC', { weekday: 'short' }),
+        name: date.toLocaleDateString('es-EC', { weekday: 'long' }).replace(/^\w/, c => c.toUpperCase()),
         creadas: tareasDia.length,
         completadas: tareasDia.filter(t => t.estado?.nombre === 'Completada').length
       };
@@ -650,31 +637,50 @@ const AdminView = () => {
 
       {/* KPIs Principales */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-        <StatCard
-          title="Total Tareas"
-          value={analytics.total}
-          icon={FileText}
-          subtext={`${analytics.completadas} completadas`}
-        />
-        <StatCard
-          title="Eficiencia"
-          value={`${analytics.eficiencia}%`}
-          icon={TrendingUp}
-          subtext="Tareas completadas"
-        />
-        <StatCard
-          title="Puntualidad"
-          value={`${analytics.tasaPuntualidad}%`}
-          icon={Clock}
-          subtext="Completadas a tiempo"
-        />
-        <StatCard
-          title="Tareas Vencidas"
-          value={analytics.vencidas}
-          icon={AlertTriangle}
-          subtext="Requieren atención"
-        />
-      </div>
+      <StatCard
+    title="Total Tareas"
+    value={analytics.total}
+    icon={FileText}
+    subtext={
+      analytics.total === 1
+        ? "1 tarea en total"
+        : `${analytics.total} tareas en total`
+    }
+  />
+
+  <StatCard
+    title="Eficiencia"
+    value={`${analytics.eficiencia}%`}
+    icon={TrendingUp}
+    subtext={
+      analytics.completadas === 1
+        ? "1 tarea completada"
+        : `${analytics.completadas} tareas completadas`
+    }
+  />
+
+  <StatCard
+    title="Puntualidad"
+    value={`${analytics.tasaPuntualidad}%`}
+    icon={Clock}
+    subtext={
+      analytics.completadasATiempo === 1
+        ? "1 completada a tiempo"
+        : `${analytics.completadasATiempo} completadas a tiempo`
+    }
+  />
+
+  <StatCard
+    title="Tareas Vencidas"
+    value={analytics.vencidas}
+    icon={AlertTriangle}
+    subtext={
+      analytics.vencidas === 1
+        ? "1 tarea vencida – requiere atención"
+        : `${analytics.vencidas} tareas vencidas – requieren atención`
+    }
+  />
+</div>
 
       {/* KPIs Secundarios */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
@@ -690,7 +696,7 @@ const AdminView = () => {
           icon={BarChart3}
           subtext="Todos los usuarios"
         />
-        <Card className="shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md transition-all duration-300">
+        <Card className="shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md transition-all duration-300 bg-white dark:bg-slate-800">
           <div className="flex items-center justify-between">
             <div>
               <h6 className="font-bold text-slate-900 dark:text-white">Comentarios</h6>
@@ -705,7 +711,7 @@ const AdminView = () => {
             </div>
           </div>
         </Card>
-        <Card className="shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md transition-all duration-300">
+        <Card className="shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md transition-all duration-300 bg-white dark:bg-slate-800">
           <div className="flex items-center justify-between">
             <div>
               <h6 className="font-bold text-slate-900 dark:text-white">Adjuntos</h6>
@@ -725,7 +731,7 @@ const AdminView = () => {
       {/* Gráficos Principales */}
       {/* Tendencia Semanal */}
       <div className="lg:col-span-2">
-        <Card className="shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md transition-shadow duration-300">
+        <Card className="shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md transition-shadow duration-300 bg-white dark:bg-slate-800">
           <div className="flex items-center gap-3 mb-6">
             <Activity size={18} className="text-slate-600 dark:text-slate-400" />
             <div>
@@ -752,7 +758,7 @@ const AdminView = () => {
       </div>
 
       {/* Distribución por Estado */}
-      <Card className="shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md transition-shadow duration-300">
+      <Card className="shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md transition-shadow duration-300 bg-white dark:bg-slate-800">
         <div className="flex items-center gap-3 mb-6">
           <PieChartIcon size={18} className="text-slate-600 dark:text-slate-400" />
           <div>
@@ -775,7 +781,7 @@ const AdminView = () => {
       </Card>
 
       {/* Rendimiento por Departamento */}
-      <Card className="shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md transition-shadow duration-300">
+      <Card className="shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md transition-shadow duration-300 bg-white dark:bg-slate-800">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
             <Briefcase size={18} className="text-slate-600 dark:text-slate-400" />
@@ -810,7 +816,7 @@ const AdminView = () => {
       </Card>
 
       {/* Distribución por Prioridad */}
-      <Card className="shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md transition-shadow duration-300">
+      <Card className="shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md transition-shadow duration-300 bg-white dark:bg-slate-800">
         <div className="flex items-center gap-3 mb-6">
           <Target size={18} className="text-slate-600 dark:text-slate-400" />
           <div>
@@ -830,7 +836,7 @@ const AdminView = () => {
           xAxisKey="name"
           yAxisKey="value"
           subtitle=""
-          tooltipFormatter={(value, name) => [`${value} tareas`, name]}
+          tooltipFormatter={(value, name) => [ `${value} tareas`, "Cantidad" ]}
         />
       </Card>
     </div>
@@ -1202,7 +1208,7 @@ const ManagerView = () => {
 
 
       {/* Tendencia 30 días */}
-      <Card className="shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md transition-shadow duration-300">
+      <Card className="shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md transition-shadow duration-300 bg-white dark:bg-slate-800">
         <div className="flex items-center gap-3 mb-6">
           <TrendingUp size={18} className="text-slate-600 dark:text-slate-400" />
           <div>
@@ -1228,7 +1234,7 @@ const ManagerView = () => {
       </Card>
 
       {/* Distribución de Estados */}
-      <Card className="shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md transition-shadow duration-300">
+      <Card className="shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md transition-shadow duration-300 bg-white dark:bg-slate-800">
         <div className="flex items-center gap-3 mb-6">
           <PieChartIcon size={18} className="text-slate-600 dark:text-slate-400" />
           <div>
@@ -1251,7 +1257,7 @@ const ManagerView = () => {
       </Card>
 
       {/* Gráfico de Rendimiento vs Tasa de Éxito */}
-      <Card className="shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md transition-shadow duration-300">
+      <Card className="shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md transition-shadow duration-300 bg-white dark:bg-slate-800">
         <div className="flex items-center gap-3 mb-6">
           <Target size={18} className="text-slate-600 dark:text-slate-400" />
           <div>
@@ -1606,7 +1612,7 @@ const UserView = () => {
 
       {/* Estadísticas Adicionales */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6">
-        <Card className="shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md transition-all duration-300">
+        <Card className="shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md transition-all duration-300 bg-white dark:bg-slate-800">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-600 dark:text-slate-400 mb-1">Total Tareas</p>
@@ -1619,7 +1625,7 @@ const UserView = () => {
           </div>
         </Card>
 
-        <Card className="shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md transition-all duration-300">
+        <Card className="shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md transition-all duration-300 bg-white dark:bg-slate-800">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-600 dark:text-slate-400 mb-1">Mis Comentarios</p>
@@ -1632,7 +1638,7 @@ const UserView = () => {
           </div>
         </Card>
 
-        <Card className="shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md transition-all duration-300">
+        <Card className="shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md transition-all duration-300 bg-white dark:bg-slate-800">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-600 dark:text-slate-400 mb-1">A Tiempo</p>
@@ -1649,7 +1655,7 @@ const UserView = () => {
       {/* Gráficos Usuario */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
         {/* Progreso Semanal */}
-        <Card className="shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md transition-shadow duration-300">
+        <Card className="shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md transition-shadow duration-300 bg-white dark:bg-slate-800">
           <div className="flex items-center gap-3 mb-6">
             <TrendingUp size={18} className="text-slate-600 dark:text-slate-400" />
             <div>
@@ -1673,7 +1679,7 @@ const UserView = () => {
         </Card>
 
         {/* Distribución por Prioridad */}
-        <Card className="shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md transition-shadow duration-300">
+        <Card className="shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md transition-shadow duration-300 bg-white dark:bg-slate-800">
           <div className="flex items-center gap-3 mb-6">
             <Target size={18} className="text-slate-600 dark:text-slate-400" />
             <div>
@@ -1691,13 +1697,13 @@ const UserView = () => {
             animationDuration={1700}
             showLegend
             subtitle=""
-            tooltipFormatter={(value, name) => [`${value} tareas`, name]}
+            tooltipFormatter={(value, name) => [`${value} tareas`, 'Cantidad']}
           />
         </Card>
       </div>
 
       {/* Próximos Vencimientos */}
-      <Card className="shadow-sm border border-slate-100 dark:border-slate-700 hover:shadow-md transition-shadow duration-300">
+      <Card className="shadow-sm border border-slate-100 dark:border-slate-700 hover:shadow-md transition-shadow duration-300 bg-white dark:bg-slate-800">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg bg-orange-100 dark:bg-orange-900/30">
@@ -1776,7 +1782,7 @@ const UserView = () => {
 
       {/* Evolución del Rendimiento */}
       {analytics.rendimientoMensual.length > 0 && (
-        <Card className="shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md transition-shadow duration-300">
+        <Card className="shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md transition-shadow duration-300 bg-white dark:bg-slate-800">
           <div className="flex items-center gap-3 mb-6">
             <BarChart2 size={18} className="text-slate-600 dark:text-slate-400" />
             <div>
@@ -1876,13 +1882,21 @@ export default function Dashboard() {
   const RoleIcon = roleConfig.icon;
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-900">
-      {/* Contenido principal */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
-        <div className="animate-fade-in">
-          {renderView()}
+    <ThemeProvider
+      forcedTheme="light"
+      attribute="class"
+      disableTransitionOnChange
+      enableSystem={false}
+      defaultTheme="light"
+    >
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-900">
+        {/* Contenido principal */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-8">
+          <div className="animate-fade-in">
+            {renderView()}
+          </div>
         </div>
       </div>
-    </div>
+    </ThemeProvider>
   );
 }

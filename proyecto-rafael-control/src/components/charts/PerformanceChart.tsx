@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { useTheme } from 'next-themes';
 import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis,
   CartesianGrid, Tooltip, BarChart, Bar, LineChart, Line,
@@ -61,6 +62,7 @@ const PerformanceChart: React.FC<ChartProps> = ({
   secondaryDataKey,
   secondaryColor = '#3730A3',
   xAxisKey = 'name',
+
   yAxisKey = 'value',
   dataKeys = ['value'],
   colors = ['#1E40AF', '#3730A3', '#166534', '#92400E', '#991B1B'],
@@ -77,36 +79,49 @@ const PerformanceChart: React.FC<ChartProps> = ({
   showDataLabels = false
 }) => {
 
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === 'dark';
   const ChartIcon = getChartIcon(type);
 
   const CustomTooltip = ({ active, payload, label }: any) => {
-    if (active && payload && payload.length) {
-      return (
-        <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-2xl p-4 min-w-48 backdrop-blur-sm">
-          <p className="text-sm font-bold text-slate-900 dark:text-white mb-3 border-b border-slate-200 dark:border-slate-700 pb-2">
-            {label}
-          </p>
-          {payload.map((entry: any, index: number) => (
-            <div key={index} className="flex items-center justify-between gap-4 mb-2 last:mb-0">
-              <div className="flex items-center gap-2">
-                <div
-                  className="w-3 h-3 rounded-full shadow-sm"
-                  style={{ backgroundColor: entry.color }}
-                />
-                <span className="text-xs text-slate-600 dark:text-slate-300 font-medium">
-                  {entry.name}:
-                </span>
-              </div>
-              <span className="text-sm font-bold" style={{ color: entry.color }}>
-                {tooltipFormatter ? tooltipFormatter(entry.value, entry.name)[0] : entry.value}
+  if (active && payload && payload.length) {
+    // Función auxiliar para capitalizar la primera letra
+    const capitalize = (str: string) => {
+      if (!str) return "Valor";
+      // Reemplazos específicos primero
+      if (str.toLowerCase() === "value") return "Cantidad";
+      // Luego capitalizamos la primera letra
+      return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+    };
+
+    return (
+      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-2xl p-4 min-w-48 backdrop-blur-sm">
+        <p className="text-sm font-bold text-slate-900 dark:text-white mb-3 border-b border-slate-200 dark:border-slate-700 pb-2">
+          {label}
+        </p>
+        {payload.map((entry: any, index: number) => (
+          <div key={index} className="flex items-center justify-between gap-4 mb-2 last:mb-0">
+            <div className="flex items-center gap-2">
+              <div
+                className="w-3 h-3 rounded-full shadow-sm"
+                style={{ backgroundColor: entry.color }}
+              />
+              <span className="text-xs text-slate-600 dark:text-slate-300 font-medium">
+                {capitalize(entry.name)}:
               </span>
             </div>
-          ))}
-        </div>
-      );
-    }
-    return null;
-  };
+            <span className="text-sm font-bold" style={{ color: entry.color }}>
+              {tooltipFormatter 
+                ? tooltipFormatter(entry.value, entry.name)[0] 
+                : entry.value}
+            </span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+  return null;
+};
 
   const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, name }: any) => {
     const radius = innerRadius + (outerRadius - innerRadius) * 0.6;
@@ -143,7 +158,7 @@ const PerformanceChart: React.FC<ChartProps> = ({
   const renderBarLabel = (props: any) => {
     const { x, y, width, height, value } = props;
     if (!showDataLabels || height < 20) return null;
-    
+
     return (
       <text
         x={x + width / 2}
@@ -165,16 +180,16 @@ const PerformanceChart: React.FC<ChartProps> = ({
     };
 
     const axisProps = {
-      axisLine: { stroke: '#E2E8F0', strokeWidth: 1 },
-      tickLine: { stroke: '#E2E8F0', strokeWidth: 1 },
-      tick: { fill: '#64748B', fontSize: 11, fontWeight: 500 },
+      axisLine: { stroke: isDark ? '#475569' : '#E2E8F0', strokeWidth: 1 },
+      tickLine: { stroke: isDark ? '#475569' : '#E2E8F0', strokeWidth: 1 },
+      tick: { fill: isDark ? '#94A3B8' : '#64748B', fontSize: 11, fontWeight: 500 },
       className: 'dark:stroke-slate-600'
     };
 
     const gridProps = showGrid ? {
       strokeDasharray: "3 3",
       vertical: false,
-      stroke: "#F1F5F9",
+      stroke: isDark ? '#334155' : '#F1F5F9', // slate-700 : slate-100
       strokeWidth: 1,
       className: 'dark:stroke-slate-700'
     } : {};
@@ -234,7 +249,7 @@ const PerformanceChart: React.FC<ChartProps> = ({
                 fill={`url(#bar-gradient-${index})`}
                 radius={radius}
                 maxBarSize={50}
-                name={key}
+                name={key === "value" ? "Cantidad" : key}   // ← ¡AQUÍ está la clave!
                 stackId={stacked ? 'stack' : undefined}
                 label={showDataLabels ? renderBarLabel : undefined}
                 animationDuration={animationDuration}

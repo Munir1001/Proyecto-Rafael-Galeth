@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import ThemeToggle from "../components/ThemeToggle";
+import { useTheme } from "next-themes";
 import {
     LayoutDashboard,
     Briefcase,
@@ -88,6 +89,7 @@ const MENU_ITEMS_CONFIG = [
 export default function Layout() {
     const { profile, signOut } = useAuth() // Obtenemos el perfil y la función signOut
     const navigate = useNavigate()
+    const { setTheme } = useTheme();
     const [isSidebarOpen, setIsSidebarOpen] = useState(true)
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
     const location = useLocation()
@@ -114,6 +116,9 @@ export default function Layout() {
     }, [])
 
     const handleLogout = async () => {
+        // Usar setTheme para manejar correctamente el estado del tema y localStorage
+        setTheme('light');
+        
         await signOut(); // Usamos la función del contexto que limpia todo correctamente
         navigate("/login", { replace: true });
     };
