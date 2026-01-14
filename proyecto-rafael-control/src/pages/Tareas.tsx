@@ -1086,47 +1086,55 @@ export default function TareasAvanzadas() {
     };
 
     const canChangeStatus = (task: Tarea | null): boolean => {
-        if (!task || !profile) return false;
+    if (!task || !profile) return false;
 
-        // REGLA ESPECÍFICA PARA MANAGER: Solo puede cambiar estado de tareas que él ha asignado
-        if (profile.rol_nombre === 'Manager') {
-            // Solo puede cambiar estado si él es el creador (quien asignó la tarea)
-            return task.creador_id === profile.id;
-        }
+    // --- CAMBIO 1: Se eliminó el bloqueo específico de 'Manager' ---
+    // Al quitar ese if, permitimos que el Manager caiga en las reglas de abajo 
+    // (asignado_a o colaboradores).
 
-        // REGLA PARA TAREAS COMPLETADAS VENCIDAS: Solo Admin puede modificar
-        if (task.estado?.nombre === 'Completada' &&
-            new Date(task.fecha_fin) < new Date()) {
-            // Tarea completada pero vencida = solo Admin puede modificar estado
-            return profile.rol_nombre === 'Admin';
-        }
+    // REGLA PARA TAREAS COMPLETADAS VENCIDAS: Solo Admin puede modificar
+    // (Mantenemos esto para proteger el historial de tareas viejas)
+    if (task.estado?.nombre === 'Completada' &&
+        new Date(task.fecha_fin) < new Date()) {
+        return profile.rol_nombre === 'Admin';
+    }
 
-        // Regla de Tarea Vencida (ESTRICTA)
-        if (task.estado?.nombre === 'Vencida') {
-            // Solo Admin o el Creador pueden sacarla de "Vencida"
-            return (
-                profile.rol_nombre === 'Admin' ||
-                task.creador_id === profile.id
-            );
-        }
+    // Regla de Tarea Vencida (ESTRICTA)
+    // (Mantenemos esto: si ya venció, solo el admin o quien la mandó pueden reabrirla)
+    if (task.estado?.nombre === 'Vencida') {
+        return (
+            profile.rol_nombre === 'Admin' ||
+            task.creador_id === profile.id
+        );
+    }
 
-        // Reglas normales
-        if (profile.rol_nombre === 'Admin') return true;
-        if (task.creador_id === profile.id) return true;
-        if (task.asignado_a === profile.id) return true;
-        if (task.colaboradores && task.colaboradores.some(c => c.usuario_id === profile.id)) return true;
+    // Reglas normales (Aplica para Manager, Usuario, etc.)
+    if (profile.rol_nombre === 'Admin') return true;
+    if (task.creador_id === profile.id) return true;
+    
+    // AQUÍ es donde se habilita al Manager/Usuario si la tarea se le asignó
+    if (task.asignado_a === profile.id) return true; 
+    
+    // También si es colaborador
+    if (task.colaboradores && task.colaboradores.some(c => c.usuario_id === profile.id)) return true;
 
-        return false;
-    };
+    return false;
+};
 
-    const getAllowedStatuses = (currentStatusId: string) => {
-        const task = editingTask || selectedTaskForDetail;
-        if (!task) return estados;
-        if (profile?.rol_nombre === 'Admin') return estados;
-        if (task.creador_id === profile?.id) return estados;
-        const allowedNames = ['En Progreso', 'Completada', 'Pendiente'];
-        return estados.filter(e => allowedNames.includes(e.nombre) || e.id === currentStatusId);
-    };
+const getAllowedStatuses = (currentStatusId: string) => {
+    const task = editingTask || selectedTaskForDetail;
+    if (!task) return estados;
+
+    // Admin y Creador original tienen acceso a TODOS los estados (incluyendo Vencida, Archivada, etc.)
+    if (profile?.rol_nombre === 'Admin') return estados;
+    if (task.creador_id === profile?.id) return estados;
+
+    // --- CAMBIO 2: Agregamos 'Nueva' a la lista permitida ---
+    // Esto define qué opciones ven en el desplegable si NO son admin/creador
+    const allowedNames = ['Nueva', 'En Progreso', 'Completada', 'Pendiente'];
+    
+    return estados.filter(e => allowedNames.includes(e.nombre) || e.id === currentStatusId);
+};
 
     const canManageComment = (comentario: Comentario) => {
         if (!profile) return false;

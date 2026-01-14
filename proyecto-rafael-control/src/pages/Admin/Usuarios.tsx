@@ -414,40 +414,45 @@ export default function Usuarios() {
 
                 {/* 3. BARRA DE BÚSQUEDA Y FILTRO */}
                 <div className="mb-6 flex flex-col md:flex-row gap-4 items-center justify-between">
-                    {/* Buscador */}
-                    <div className="relative w-full group">
+
+                    {/* Buscador: Usa flex-1 para ocupar el espacio disponible */}
+                    <div className="relative w-full md:flex-1 group">
                         <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                             <Search className="h-5 w-5 text-indigo-400 group-focus-within:text-indigo-600 transition" />
                         </div>
                         <input
                             type="text"
-                            className="pl-12 w-full rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3.5 text-sm focus:border-indigo-500 focus:ring-4 focus:ring-indigo-200 dark:focus:ring-indigo-900/50 transition-all duration-300 shadow-sm hover:shadow-md dark:text-white placeholder:text-slate-400"
+                            className="pl-12 w-full h-12 rounded-xl
+    border border-slate-200 dark:border-slate-700
+    bg-white dark:bg-slate-800
+    text-sm leading-none
+    focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 dark:focus:ring-indigo-900/50
+    transition-all shadow-sm hover:shadow-md
+    dark:text-white placeholder:text-slate-400"
                             placeholder="Buscar por nombre o email..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
+
                     </div>
 
-                    {/* Filtro por Departamento */}
-                    <div className="relative w-full md:w-80 group h-14">
-                        {/* Icono izquierdo */}
-                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                            <Filter className="h-5 w-5 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
-                        </div>
 
+                    {/* Filtro por Departamento */}
+                    <div className="relative w-full md:w-72 group">
                         <select
                             value={selectedDept}
                             onChange={(e) => setSelectedDept(e.target.value)}
-                            className="h-14 w-full pl-12 pr-10 rounded-2xl border-none
-                   bg-white dark:bg-slate-800
-                   shadow-lg shadow-slate-200/50 dark:shadow-none
-                   ring-1 ring-slate-100 dark:ring-slate-700
-                   focus:ring-2 focus:ring-indigo-500
-                   appearance-none cursor-pointer
-                   text-slate-700 dark:text-white font-medium
-                   transition-all"
+                            className="w-full h-12 pl-14 pr-10 rounded-xl
+    border border-slate-200 dark:border-slate-700
+    bg-white dark:bg-slate-800
+    text-sm font-medium text-slate-700 dark:text-white
+    leading-none pt-[1px]
+    focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 dark:focus:ring-indigo-900/50
+    appearance-none cursor-pointer
+    transition-all shadow-sm hover:shadow-md"
                         >
-                            <option value="">Todos los Departamentos</option>
+
+                            <option value="">Todos los Departamentos.</option>
                             {departamentos.map(dept => (
                                 <option key={dept.id} value={dept.id}>
                                     {dept.nombre}
@@ -455,8 +460,8 @@ export default function Usuarios() {
                             ))}
                         </select>
 
-                        {/* Flecha derecha */}
-                        <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
+                        {/* Flecha derecha (Chevron) */}
+                        <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none z-10">
                             <ChevronDown className="h-4 w-4 text-slate-400" />
                         </div>
                     </div>
