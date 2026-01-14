@@ -2829,7 +2829,7 @@ const getAllowedStatuses = (currentStatusId: string) => {
                                         </div>
                                     )}
                                     <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200 dark:border-slate-700 shadow-sm">
-                                        <h4 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wide mb-4">Cronograma</h4>
+                                        <h4 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wide mb-4">Cronograma TEST</h4>
                                         <div className="space-y-4">
                                             <div className="flex justify-between items-center p-3 bg-slate-50 dark:bg-slate-700/50 rounded-xl">
                                                 <span className="text-slate-500 dark:text-slate-400 text-sm font-medium">Inicio</span>
