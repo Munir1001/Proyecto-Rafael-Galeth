@@ -1361,184 +1361,361 @@ const getAllowedStatuses = (currentStatusId: string) => {
         return { showUserTooltip, showListTooltip, hideTooltip, TooltipComponent };
     };
 
-    const KanbanBoard = () => {
-        const [draggedTask, setDraggedTask] = useState<Tarea | null>(null);
-        const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
-        const { showUserTooltip, showListTooltip, hideTooltip, TooltipComponent } = useAvatarTooltip();
+    
+const KanbanBoard = () => {
+  const [draggedTask, setDraggedTask] = useState<Tarea | null>(null);
+  const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
+  const { showUserTooltip, showListTooltip, hideTooltip, TooltipComponent } = useAvatarTooltip();
 
-        const handleDragStart = (e: React.DragEvent, task: Tarea) => {
-            setDraggedTask(task);
-            e.dataTransfer.effectAllowed = 'move';
-            e.dataTransfer.dropEffect = 'move';
-        };
+  const boardRef = useRef<HTMLDivElement>(null);
+  const [isDraggingBoard, setIsDraggingBoard] = useState(false);
+  const startX = useRef(0);
+  const scrollLeft = useRef(0);
+  const velocity = useRef(0);
+  const prevX = useRef(0);
+  const rafId = useRef<number | null>(null);
 
-        const handleDragOver = (e: React.DragEvent, estadoId: string) => {
-            e.preventDefault();
-            setDragOverColumn(estadoId);
-        };
+  // Nuevo: para auto-scroll durante drag de tarjetas
+  const scrollRafId = useRef<number | null>(null);
+  const mousePosition = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const scrollSpeed = 20; // píxeles por frame (ajusta para más/menos rápido)
 
-        const handleDragLeave = () => {
-            setDragOverColumn(null);
-        };
+  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    // Si ya hay una tarea siendo arrastrada → salir
+    if (draggedTask) return;
 
-        const handleDrop = async (e: React.DragEvent, newEstadoId: string) => {
-            e.preventDefault();
-            setDragOverColumn(null);
+    // Verificar si el clic fue en una tarjeta o sus hijos
+    const target = e.target as HTMLElement;
+    const isCardOrChild = target.closest('.group.relative'); // clase distintiva de las tarjetas
 
-            if (!draggedTask) return;
-            if (draggedTask.estado_id === newEstadoId) {
-                setDraggedTask(null);
-                return;
-            }
+    if (isCardOrChild || e.button !== 0) {
+      // Si fue en una tarjeta → dejar que el drag nativo lo maneje
+      return;
+    }
 
-            const targetStatus = estados.find(st => st.id === newEstadoId);
-            if (!targetStatus) return;
+    e.preventDefault();
+    e.stopPropagation();
 
-            const isFullAccess =
-                profile?.rol_nombre === 'Admin' ||
-                draggedTask.creador_id === profile?.id;
+    setIsDraggingBoard(true);
 
-            if (!isFullAccess) {
-                const allowedNames = ['En Progreso', 'Completada', 'Pendiente'];
-                if (!allowedNames.includes(targetStatus.nombre)) {
-                    addToast(`Permiso restringido. No tienes autorización para mover tareas al estado "${targetStatus.nombre}". Estados permitidos: En Progreso, Pendiente y Completada.`, "warning");
-                    setDraggedTask(null);
-                    return;
-                }
-            }
+    startX.current = e.pageX - (boardRef.current?.offsetLeft || 0);
+    scrollLeft.current = boardRef.current?.scrollLeft || 0;
+    prevX.current = e.pageX;
+    velocity.current = 0;
 
-            await handleUpdateTaskStatus(draggedTask.id, newEstadoId);
-            setDraggedTask(null);
-        };
+    if (rafId.current) cancelAnimationFrame(rafId.current);
 
-        return (
-            <div className="flex h-full gap-5 px-5 pb-2 overflow-x-auto overflow-y-hidden snap-x custom-scrollbar bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 relative transition-colors duration-300">
-                {estados.map(estado => {
-                    const tareasEnColumna = filteredAndSortedTareas.filter(t => t.estado_id === estado.id);
-                    const isDragOver = dragOverColumn === estado.id;
+    if (boardRef.current) {
+      boardRef.current.style.cursor = 'grabbing';
+    }
+  };
 
-                    return (
-                        <div
-                            key={estado.id}
-                            className={`flex-shrink-0 w-[340px] flex flex-col h-full max-h-full rounded-2xl transition-all duration-300 snap-center shadow-lg shadow-slate-200/40 dark:shadow-slate-900/30
-                            ${isDragOver ? 'bg-white/90 dark:bg-slate-800/90 ring-4 ring-indigo-100/50 dark:ring-indigo-500/20 scale-[1.02] shadow-indigo-200/30 dark:shadow-indigo-900/20' : 'bg-white dark:bg-slate-800'}
-                        `}
-                            style={{ borderTopColor: estado.color }}
-                            onDragOver={(e) => handleDragOver(e, estado.id)}
-                            onDragLeave={handleDragLeave}
-                            onDrop={(e) => handleDrop(e, estado.id)}
-                        >
-                            <div className="p-4 flex items-center justify-between sticky top-0 z-10 bg-white/95 dark:bg-slate-800/95 backdrop-blur-md rounded-t-2xl border-b border-slate-100/50 dark:border-slate-700/50 transition-colors duration-300">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-3 h-3 rounded-full shadow-sm" style={{ backgroundColor: estado.color }} />
-                                    <span className="font-bold text-slate-700 dark:text-slate-200 text-sm uppercase tracking-wider">
-                                        {estado.nombre}
-                                    </span>
-                                    <span className="flex items-center justify-center h-5 px-2.5 rounded-full bg-slate-100 dark:bg-slate-700 text-xs font-bold text-slate-500 dark:text-slate-300 shadow-inner transition-colors duration-300">
-                                        {tareasEnColumna.length}
-                                    </span>
-                                </div>
-                                <button className="text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all duration-200 p-1.5 rounded-lg">
-                                    <MoreHorizontal size={18} />
-                                </button>
-                            </div>
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!isDraggingBoard || !boardRef.current) return;
 
-                            <div className="flex-1 overflow-y-auto px-3 pb-4 space-y-3 hide-scrollbar">
-                                {tareasEnColumna.map(tarea => (
-                                    <div
-                                        key={tarea.id}
-                                        draggable={canChangeStatus(tarea)}
-                                        onDragStart={(e) => handleDragStart(e, tarea)}
-                                        onClick={() => openTaskDetail(tarea)}
-                                        className="group relative bg-gradient-to-br from-white to-slate-50 dark:from-slate-700 dark:to-slate-800 rounded-xl p-4 shadow-sm hover:shadow-xl hover:shadow-slate-200/50 dark:hover:shadow-slate-900/50 hover:-translate-y-0.5 transition-all duration-300 border border-slate-100/80 dark:border-slate-600/50 cursor-grab active:cursor-grabbing"
-                                    >
-                                        <div className="absolute left-0 top-3 bottom-3 w-1.5 rounded-r-full shadow-sm" style={{ backgroundColor: tarea.prioridad?.color || '#cbd5e1' }} />
+    e.preventDefault();
+    const x = e.pageX - (boardRef.current.offsetLeft || 0);
+    const walk = (x - startX.current) * 2.2; // sensibilidad natural
 
-                                        <div className="flex justify-between items-start mb-2.5 pl-3">
-                                            {tarea.prioridad && (
-                                                <div className="px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider border shadow-sm"
-                                                    style={{ color: tarea.prioridad.color, backgroundColor: `${tarea.prioridad.color}15`, borderColor: `${tarea.prioridad.color}30` }}>
-                                                    {tarea.prioridad.nombre}
-                                                </div>
-                                            )}
-                                            {canEditTaskDetails(tarea) && (
-                                                <button onClick={(e) => { e.stopPropagation(); setEditingTask(tarea); setIsModalOpen(true); }}
-                                                    className="opacity-0 group-hover:opacity-100 transition-all duration-200 p-1.5 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg text-slate-400 dark:text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 hover:scale-110">
-                                                    <Edit2 size={14} />
-                                                </button>
-                                            )}
-                                        </div>
+    boardRef.current.scrollLeft = scrollLeft.current - walk;
 
-                                        <div className="pl-3 mb-3">
-                                            <h4 className="font-bold text-slate-800 dark:text-slate-100 text-sm leading-snug mb-1.5 group-hover:text-indigo-700 dark:group-hover:text-indigo-300 transition-colors line-clamp-2">
-                                                {tarea.titulo}
-                                            </h4>
-                                            <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed line-clamp-2 font-medium transition-colors duration-300">
-                                                {tarea.descripcion}
-                                            </p>
-                                        </div>
+    velocity.current = (e.pageX - prevX.current) * 1.8;
+    prevX.current = e.pageX;
+  };
 
-                                        <div className="h-px bg-gradient-to-r from-slate-100 to-transparent dark:from-slate-600 dark:to-transparent w-full mb-3 ml-3 transition-colors duration-300" />
+  const animateInertia = () => {
+    if (!boardRef.current || Math.abs(velocity.current) < 0.8) {
+      rafId.current = null;
+      return;
+    }
 
-                                        <div className="pl-3 flex items-center justify-between mt-auto pt-1">
-                                            <div className="flex items-center gap-2">
-                                                <div className="flex items-center -space-x-2">
-                                                    <div className="z-30 ring-3 ring-white dark:ring-slate-700 rounded-full transition-all duration-200 hover:scale-110 hover:z-40 shadow-sm"
-                                                        onMouseEnter={(e) => tarea.asignado ? showUserTooltip(e, tarea.asignado.nombre_completo, 'Responsable') : null}
-                                                        onMouseLeave={hideTooltip}
-                                                    >
-                                                        {tarea.asignado ? (
-                                                            <UserAvatar url={tarea.asignado.avatar_url} name={tarea.asignado.nombre_completo} size="sm" showTooltip={false} />
-                                                        ) : (
-                                                            <div className="w-8 h-8 rounded-full border-2 border-dashed border-slate-200 dark:border-slate-600 flex items-center justify-center bg-slate-50 dark:bg-slate-700 text-slate-300 dark:text-slate-500"><UserIcon size={14} /></div>
-                                                        )}
-                                                    </div>
+    boardRef.current.scrollLeft -= velocity.current * 1.5;
+    velocity.current *= 0.935; // fricción suave
 
-                                                    {tarea.colaboradores?.slice(0, 2).map((colab) => (
-                                                        <div key={colab.usuario_id} className="z-20 ring-3 ring-white dark:ring-slate-700 rounded-full transition-all duration-200 hover:scale-110 hover:z-40 shadow-sm"
-                                                            onMouseEnter={(e) => showUserTooltip(e, colab.usuario.nombre_completo, 'Colaborador')}
-                                                            onMouseLeave={hideTooltip}
-                                                        >
-                                                            <UserAvatar url={colab.usuario.avatar_url} name={colab.usuario.nombre_completo} size="sm" showTooltip={false} />
-                                                        </div>
-                                                    ))}
+    rafId.current = requestAnimationFrame(animateInertia);
+  };
 
-                                                    {tarea.colaboradores && tarea.colaboradores.length > 2 && (
-                                                        <div className="z-10 w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-600 ring-3 ring-white dark:ring-slate-700 flex items-center justify-center text-[10px] font-bold text-slate-500 dark:text-slate-300 cursor-help transition-all duration-200 hover:scale-110 hover:bg-slate-200 dark:hover:bg-slate-500 shadow-sm"
-                                                            onMouseEnter={(e) => showListTooltip(e, tarea.colaboradores!.slice(2).map(c => c.usuario.nombre_completo))}
-                                                            onMouseLeave={hideTooltip}
-                                                        >
-                                                            +{tarea.colaboradores.length - 2}
-                                                        </div>
-                                                    )}
-                                                </div>
+  const handleMouseUpOrLeave = () => {
+    if (!isDraggingBoard) return;
 
-                                                <div className="flex gap-1.5 text-slate-400 dark:text-slate-500 ml-1 transition-colors duration-300">
-                                                    {(tarea.adjuntos_count || 0) > 0 && <div className="flex items-center gap-0.5 text-[10px] bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 rounded-md transition-colors duration-300"><Paperclip size={11} /> {tarea.adjuntos_count}</div>}
-                                                    {(tarea.comentarios_count || 0) > 0 && <div className="flex items-center gap-0.5 text-[10px] bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 rounded-md transition-colors duration-300"><MessageSquare size={11} /> {tarea.comentarios_count}</div>}
-                                                </div>
-                                            </div>
+    setIsDraggingBoard(false);
 
-                                            <div className={`text-[10px] font-bold flex items-center gap-1 px-2 py-1 rounded-lg border shadow-sm transition-colors duration-300 ${new Date(tarea.fecha_fin) < new Date() && tarea.estado?.nombre !== 'Completada' ? 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800' : 'text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-700 border-slate-200 dark:border-slate-600'}`}>
-                                                <Clock size={11} /> {formatShortDate(tarea.fecha_fin)}
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
-                                {tareasEnColumna.length === 0 && (
-                                    <div className="h-32 border-2 border-dashed border-slate-200/70 dark:border-slate-700/50 rounded-xl flex flex-col items-center justify-center text-slate-400/60 dark:text-slate-500/60 text-xs gap-2.5 bg-slate-50/50 dark:bg-slate-800/50 transition-colors duration-300">
-                                        <div className="p-2.5 bg-white dark:bg-slate-700 shadow-sm rounded-full transition-colors duration-300"><Plus size={18} /></div>
-                                        <span className="font-medium">Soltar tarea aquí</span>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    );
-                })}
-                <TooltipComponent />
-            </div>
-        );
+    if (boardRef.current) {
+      boardRef.current.style.cursor = 'grab';
+    }
+
+    // Inercia
+    if (Math.abs(velocity.current) > 4) {
+      rafId.current = requestAnimationFrame(animateInertia);
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (rafId.current) cancelAnimationFrame(rafId.current);
     };
+  }, []);
+
+  // Nuevo: funciones para auto-scroll durante drag de tarjetas
+  const startAutoScroll = () => {
+    const handleGlobalMouseMove = (e: MouseEvent) => {
+      mousePosition.current = { x: e.clientX, y: e.clientY };
+    };
+
+    window.addEventListener('mousemove', handleGlobalMouseMove);
+
+    const scrollLoop = () => {
+      if (!boardRef.current || !draggedTask) return;
+
+      const { x, y } = mousePosition.current;
+      const rect = boardRef.current.getBoundingClientRect();
+
+      // Horizontal auto-scroll
+      if (x < rect.left + 50) {
+        boardRef.current.scrollLeft -= scrollSpeed;
+      } else if (x > rect.right - 50) {
+        boardRef.current.scrollLeft += scrollSpeed;
+      }
+
+      // Vertical auto-scroll (para columnas largas)
+      const column = document.elementFromPoint(x, y)?.closest('.flex-1.overflow-y-auto') as HTMLElement;
+      if (column) {
+        const colRect = column.getBoundingClientRect();
+        if (y < colRect.top + 50) {
+          column.scrollTop -= scrollSpeed;
+        } else if (y > colRect.bottom - 50) {
+          column.scrollTop += scrollSpeed;
+        }
+      }
+
+      scrollRafId.current = requestAnimationFrame(scrollLoop);
+    };
+
+    scrollRafId.current = requestAnimationFrame(scrollLoop);
+
+    return () => {
+      window.removeEventListener('mousemove', handleGlobalMouseMove);
+      if (scrollRafId.current) cancelAnimationFrame(scrollRafId.current);
+    };
+  };
+
+  const stopAutoScroll = () => {
+    if (scrollRafId.current) cancelAnimationFrame(scrollRafId.current);
+  };
+
+  const handleDragStart = (e: React.DragEvent, task: Tarea) => {
+    setDraggedTask(task);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.dropEffect = 'move';
+    startAutoScroll(); // Iniciar auto-scroll
+  };
+
+  const handleDragEnd = () => {
+    setDraggedTask(null);
+    stopAutoScroll(); // Detener auto-scroll
+  };
+
+  const handleDragOver = (e: React.DragEvent, estadoId: string) => {
+    e.preventDefault();
+    setDragOverColumn(estadoId);
+  };
+
+  const handleDragLeave = () => {
+    setDragOverColumn(null);
+  };
+
+  const handleDrop = async (e: React.DragEvent, newEstadoId: string) => {
+    e.preventDefault();
+    setDragOverColumn(null);
+    if (!draggedTask) return;
+    if (draggedTask.estado_id === newEstadoId) {
+      setDraggedTask(null);
+      return;
+    }
+
+    const targetStatus = estados.find(st => st.id === newEstadoId);
+    if (!targetStatus) return;
+
+    const isFullAccess = profile?.rol_nombre === 'Admin' || draggedTask.creador_id === profile?.id;
+
+    if (!isFullAccess) {
+      const allowedNames = ['En Progreso', 'Completada', 'Pendiente'];
+      if (!allowedNames.includes(targetStatus.nombre)) {
+        addToast(
+          `Permiso restringido. No puedes mover tareas al estado "${targetStatus.nombre}". Estados permitidos: En Progreso, Pendiente y Completada.`,
+          "warning"
+        );
+        setDraggedTask(null);
+        return;
+      }
+    }
+
+    await handleUpdateTaskStatus(draggedTask.id, newEstadoId);
+    setDraggedTask(null);
+  };
+
+  return (
+    <>
+      <div
+        ref={boardRef}
+        className={`
+          flex h-full gap-5 px-5 pb-2 
+          overflow-x-auto overflow-y-hidden snap-x custom-scrollbar
+          select-none
+          ${isDraggingBoard ? 'cursor-grabbing' : 'cursor-grab'}
+          bg-gradient-to-br from-slate-50 to-slate-100 
+          dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 
+          relative transition-colors duration-300
+        `}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUpOrLeave}
+        onMouseLeave={handleMouseUpOrLeave}
+      >
+        {estados.map(estado => {
+          const tareasEnColumna = filteredAndSortedTareas.filter(t => t.estado_id === estado.id);
+          const isDragOver = dragOverColumn === estado.id;
+
+          return (
+            <div
+              key={estado.id}
+              className={`flex-shrink-0 w-[340px] flex flex-col h-full max-h-full rounded-2xl transition-all duration-300 snap-center shadow-lg shadow-slate-200/40 dark:shadow-slate-900/30
+                ${isDragOver ? 'bg-white/90 dark:bg-slate-800/90 ring-4 ring-indigo-100/50 dark:ring-indigo-500/20 scale-[1.02] shadow-indigo-200/30 dark:shadow-indigo-900/20' : 'bg-white dark:bg-slate-800'}
+              `}
+              style={{ borderTopColor: estado.color }}
+              onDragOver={(e) => handleDragOver(e, estado.id)}
+              onDragLeave={handleDragLeave}
+              onDrop={(e) => handleDrop(e, estado.id)}
+            >
+              <div className="p-4 flex items-center justify-between sticky top-0 z-10 bg-white/95 dark:bg-slate-800/95 backdrop-blur-md rounded-t-2xl border-b border-slate-100/50 dark:border-slate-700/50 transition-colors duration-300">
+                <div className="flex items-center gap-3">
+                  <div className="w-3 h-3 rounded-full shadow-sm" style={{ backgroundColor: estado.color }} />
+                  <span className="font-bold text-slate-700 dark:text-slate-200 text-sm uppercase tracking-wider">
+                    {estado.nombre}
+                  </span>
+                  <span className="flex items-center justify-center h-5 px-2.5 rounded-full bg-slate-100 dark:bg-slate-700 text-xs font-bold text-slate-500 dark:text-slate-300 shadow-inner transition-colors duration-300">
+                    {tareasEnColumna.length}
+                  </span>
+                </div>
+                <button className="text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all duration-200 p-1.5 rounded-lg">
+                  <MoreHorizontal size={18} />
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto px-3 pb-4 space-y-3 hide-scrollbar">
+                {tareasEnColumna.map(tarea => (
+                  <div
+                    key={tarea.id}
+                    draggable={canChangeStatus(tarea)}
+                    onDragStart={(e) => handleDragStart(e, tarea)}
+                    onDragEnd={handleDragEnd}
+                    onClick={() => openTaskDetail(tarea)}
+                    className="group relative bg-gradient-to-br from-white to-slate-50 dark:from-slate-700 dark:to-slate-800 rounded-xl p-4 shadow-sm hover:shadow-xl hover:shadow-slate-200/50 dark:hover:shadow-slate-900/50 hover:-translate-y-0.5 transition-all duration-300 border border-slate-100/80 dark:border-slate-600/50 cursor-grab active:cursor-grabbing"
+                  >
+                    <div className="absolute left-0 top-3 bottom-3 w-1.5 rounded-r-full shadow-sm" style={{ backgroundColor: tarea.prioridad?.color || '#cbd5e1' }} />
+
+                    <div className="flex justify-between items-start mb-2.5 pl-3">
+                      {tarea.prioridad && (
+                        <div className="px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider border shadow-sm"
+                          style={{ color: tarea.prioridad.color, backgroundColor: `${tarea.prioridad.color}15`, borderColor: `${tarea.prioridad.color}30` }}>
+                          {tarea.prioridad.nombre}
+                        </div>
+                      )}
+                      {canEditTaskDetails(tarea) && (
+                        <button onClick={(e) => { e.stopPropagation(); setEditingTask(tarea); setIsModalOpen(true); }}
+                          className="opacity-0 group-hover:opacity-100 transition-all duration-200 p-1.5 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg text-slate-400 dark:text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 hover:scale-110">
+                          <Edit2 size={14} />
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="pl-3 mb-3">
+                      <h4 className="font-bold text-slate-800 dark:text-slate-100 text-sm leading-snug mb-1.5 group-hover:text-indigo-700 dark:group-hover:text-indigo-300 transition-colors line-clamp-2">
+                        {tarea.titulo}
+                      </h4>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed line-clamp-2 font-medium transition-colors duration-300">
+                        {tarea.descripcion}
+                      </p>
+                    </div>
+
+                    <div className="h-px bg-gradient-to-r from-slate-100 to-transparent dark:from-slate-600 dark:to-transparent w-full mb-3 ml-3 transition-colors duration-300" />
+
+                    <div className="pl-3 flex items-center justify-between mt-auto pt-1">
+                      <div className="flex items-center gap-2">
+                        <div className="flex items-center -space-x-2">
+                          <div className="z-30 ring-3 ring-white dark:ring-slate-700 rounded-full transition-all duration-200 hover:scale-110 hover:z-40 shadow-sm"
+                            onMouseEnter={(e) => tarea.asignado ? showUserTooltip(e, tarea.asignado.nombre_completo, 'Responsable') : null}
+                            onMouseLeave={hideTooltip}
+                          >
+                            {tarea.asignado ? (
+                              <UserAvatar url={tarea.asignado.avatar_url} name={tarea.asignado.nombre_completo} size="sm" showTooltip={false} />
+                            ) : (
+                              <div className="w-8 h-8 rounded-full border-2 border-dashed border-slate-200 dark:border-slate-600 flex items-center justify-center bg-slate-50 dark:bg-slate-700 text-slate-300 dark:text-slate-500">
+                                <UserIcon size={14} />
+                              </div>
+                            )}
+                          </div>
+
+                          {tarea.colaboradores?.slice(0, 2).map((colab) => (
+                            <div key={colab.usuario_id} className="z-20 ring-3 ring-white dark:ring-slate-700 rounded-full transition-all duration-200 hover:scale-110 hover:z-40 shadow-sm"
+                              onMouseEnter={(e) => showUserTooltip(e, colab.usuario.nombre_completo, 'Colaborador')}
+                              onMouseLeave={hideTooltip}
+                            >
+                              <UserAvatar url={colab.usuario.avatar_url} name={colab.usuario.nombre_completo} size="sm" showTooltip={false} />
+                            </div>
+                          ))}
+
+                          {tarea.colaboradores && tarea.colaboradores.length > 2 && (
+                            <div className="z-10 w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-600 ring-3 ring-white dark:ring-slate-700 flex items-center justify-center text-[10px] font-bold text-slate-500 dark:text-slate-300 cursor-help transition-all duration-200 hover:scale-110 hover:bg-slate-200 dark:hover:bg-slate-500 shadow-sm"
+                              onMouseEnter={(e) => showListTooltip(e, tarea.colaboradores!.slice(2).map(c => c.usuario.nombre_completo))}
+                              onMouseLeave={hideTooltip}
+                            >
+                              +{tarea.colaboradores.length - 2}
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="flex gap-1.5 text-slate-400 dark:text-slate-500 ml-1 transition-colors duration-300">
+                          {(tarea.adjuntos_count || 0) > 0 && (
+                            <div className="flex items-center gap-0.5 text-[10px] bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 rounded-md transition-colors duration-300">
+                              <Paperclip size={11} /> {tarea.adjuntos_count}
+                            </div>
+                          )}
+                          {(tarea.comentarios_count || 0) > 0 && (
+                            <div className="flex items-center gap-0.5 text-[10px] bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 rounded-md transition-colors duration-300">
+                              <MessageSquare size={11} /> {tarea.comentarios_count}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className={`text-[10px] font-bold flex items-center gap-1 px-2 py-1 rounded-lg border shadow-sm transition-colors duration-300 ${new Date(tarea.fecha_fin) < new Date() && tarea.estado?.nombre !== 'Completada' ? 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800' : 'text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-700 border-slate-200 dark:border-slate-600'}`}>
+                        <Clock size={11} /> {formatShortDate(tarea.fecha_fin)}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+                {tareasEnColumna.length === 0 && (
+                  <div className="h-32 border-2 border-dashed border-slate-200/70 dark:border-slate-700/50 rounded-xl flex flex-col items-center justify-center text-slate-400/60 dark:text-slate-500/60 text-xs gap-2.5 bg-slate-50/50 dark:bg-slate-800/50 transition-colors duration-300">
+                    <div className="p-2.5 bg-white dark:bg-slate-700 shadow-sm rounded-full transition-colors duration-300">
+                      <Plus size={18} />
+                    </div>
+                    <span className="font-medium">Soltar tarea aquí</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <TooltipComponent />
+    </>
+  );
+};
+
+
+
 
     const ListBoard = () => (
         <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl shadow-slate-200/50 dark:shadow-slate-900/50 border border-slate-200/60 dark:border-slate-700/60 overflow-hidden transition-colors duration-300">
@@ -2078,7 +2255,7 @@ const getAllowedStatuses = (currentStatusId: string) => {
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
                                 <input
                                     type="text"
-                                    placeholder="Buscar tareas... JEJEJE"
+                                    placeholder="Buscar tareas..."
                                     className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm 
                              focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 
                              transition-all placeholder:text-slate-400 hover:border-slate-300 dark:hover:border-slate-600 text-slate-800 dark:text-slate-200"
