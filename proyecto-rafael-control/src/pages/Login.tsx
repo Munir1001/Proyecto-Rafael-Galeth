@@ -54,14 +54,17 @@ export default function Login() {
   };
 
   return (
-    // CONTENEDOR PRINCIPAL: h-screen y overflow-hidden para evitar scroll
+    // CONTENEDOR PRINCIPAL: forzamos modo light eliminando cualquier dark:
     <div className="h-screen flex bg-slate-50 overflow-hidden font-sans">
 
       {/* Modal Acceso Restringido */}
       {showBlockModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
           <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 relative">
-            <button onClick={() => setShowBlockModal(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors">
+            <button
+              onClick={() => setShowBlockModal(false)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
+            >
               <X size={20} />
             </button>
             <div className="text-center mt-2">
@@ -74,7 +77,10 @@ export default function Login() {
                 <br /><br />
                 Comunícate con un administrador del sistema.
               </p>
-              <button onClick={() => setShowBlockModal(false)} className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors">
+              <button
+                onClick={() => setShowBlockModal(false)}
+                className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+              >
                 Entendido
               </button>
             </div>
@@ -82,7 +88,7 @@ export default function Login() {
         </div>
       )}
 
-      {/* LADO IZQUIERDO - Formulario */}
+      {/* LADO IZQUIERDO - Formulario (solo light) */}
       <div className="flex-1 flex items-center justify-center px-6 bg-white overflow-hidden shadow-lg z-10">
         <div className="w-full max-w-md flex flex-col justify-center h-full max-h-screen py-4">
           
@@ -109,14 +115,16 @@ export default function Login() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-2.5 text-sm bg-gray-50 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-200 focus:border-indigo-600 outline-none transition"
+                className="w-full px-4 py-2.5 text-sm bg-gray-50 border border-gray-300 text-gray-900 placeholder:text-gray-400 rounded-xl focus:ring-2 focus:ring-indigo-200 focus:border-indigo-600 outline-none transition pr-12 [&::-ms-reveal]:hidden [&::-ms-clear]:hidden autofill:bg-gray-50 autofill:shadow-[inset_0_0_0_1000px_rgb(249,250,251)]   /* bg-gray-50 = #f9fafb */ autofill:text-gray-900"
                 placeholder="nombre@empresa.com"
               />
             </div>
 
             {/* Campo contraseña */}
             <div>
-              <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-1.5">Contraseña</label>
+              <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-1.5">
+                Contraseña
+              </label>
 
               <div className="relative">
                 <input
@@ -125,8 +133,7 @@ export default function Login() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleLogin(e)}
-                  // [&::-ms-reveal]:hidden oculta el ojo doble en Edge/IE
-                  className="w-full px-4 py-2.5 text-sm bg-gray-50 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-200 focus:border-indigo-600 outline-none transition pr-12 [&::-ms-reveal]:hidden [&::-ms-clear]:hidden"
+                  className="w-full px-4 py-2.5 text-sm bg-gray-50 border border-gray-300 text-gray-900 placeholder:text-gray-400 rounded-xl focus:ring-2 focus:ring-indigo-200 focus:border-indigo-600 outline-none transition pr-12 [&::-ms-reveal]:hidden [&::-ms-clear]:hidden autofill:bg-gray-50 autofill:shadow-[inset_0_0_0px_1000px_#f9fafb] autofill:text-gray-900 autofill:caret-gray-900"
                   placeholder="••••••••"
                 />
 
@@ -155,22 +162,24 @@ export default function Login() {
             </button>
           </div>
 
-          <div className="text-center mt-8 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg shrink-0">
-            <p className="text-xs text-slate-600 dark:text-slate-400 mb-1">
+          <div className="text-center mt-8 p-3 bg-slate-100 rounded-lg shrink-0">
+            <p className="text-xs text-slate-600 mb-1">
               ¿No posees una cuenta institucional?
             </p>
             <Link
               to="/register"
-              className="inline-flex items-center gap-2 font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 transition-colors hover:underline text-sm"
+              className="inline-flex items-center gap-2 font-semibold text-indigo-700 hover:text-indigo-800 transition-colors hover:underline text-sm"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" className="h-4 w-4" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15 7a3 3 0 1 1-6 0 3 3 0 0 1 6 0M4 20a7 7 0 0 1 14 0m1-12v6m3-3h-6"/></svg>
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" className="h-4 w-4" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 7a3 3 0 1 1-6 0 3 3 0 0 1 6 0M4 20a7 7 0 0 1 14 0m1-12v6m3-3h-6"/>
+              </svg>
               Registrarse
             </Link>
           </div>
         </div>
       </div>
 
-      {/* LADO DERECHO - Imagen (Mantiene proporciones del registro) */}
+      {/* LADO DERECHO - Imagen */}
       <div className="hidden lg:block lg:w-1/2 relative">
         <div className="absolute inset-0 bg-gray-900/80 z-10"></div>
         <img

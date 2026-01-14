@@ -26,7 +26,7 @@ import DepartamentosM from "./pages/Manager/DepartamentosM";
 import Unauthorized from './pages/Unauthorized';
 import NotFound from './pages/NotFound';
 import InactiveAccount from './pages/InactiveAccount'; // <--- IMPORTANTE
-
+import { useTheme } from "next-themes";
 
 // --- CONSTANTES ---
 const ROLES = {
@@ -48,6 +48,7 @@ const ProtectedRoute = ({ allowedRoles }: ProtectedRouteProps) => {
   // 1. Cargando
   if (loading) {
     return (
+      
       <div className="h-screen w-full flex items-center justify-center bg-gray-50 dark:bg-slate-900">
         <Spinner size="xl" aria-label="Cargando sistema..." />
       </div>
@@ -123,6 +124,7 @@ function AppRoutes() {
 }
 
 export default function App() {
+
   return (
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
       <AuthProvider>

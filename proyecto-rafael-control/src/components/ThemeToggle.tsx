@@ -6,6 +6,7 @@ export default function ThemeToggle() {
   const { theme, setTheme } = useTheme();
 
   const isDark = theme === "dark";
+  console.log("Modo actual: " + (useTheme().resolvedTheme ?? "cargando..."));
 
   return (
     <button
