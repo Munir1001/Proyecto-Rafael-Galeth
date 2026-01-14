@@ -2021,9 +2021,9 @@ const getAllowedStatuses = (currentStatusId: string) => {
                         <div className="flex items-center justify-between gap-4">
                             <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
                                 {[
-                                    { id: 'kanban', icon: Layout, label: 'Tablero test' },
-                                    { id: 'list', icon: List, label: 'Lista test' },
-                                    { id: 'timeline', icon: BarChart3, label: 'Cronograma TEST' },
+                                    { id: 'kanban', icon: Layout, label: 'Tablero' },
+                                    { id: 'list', icon: List, label: 'Lista' },
+                                    { id: 'timeline', icon: BarChart3, label: 'Cronograma' },
                                 ].map((view) => (
                                     <button
                                         key={view.id}
@@ -2078,7 +2078,7 @@ const getAllowedStatuses = (currentStatusId: string) => {
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
                                 <input
                                     type="text"
-                                    placeholder="Buscar tareas..."
+                                    placeholder="Buscar tareas... JEJEJE"
                                     className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm 
                              focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 
                              transition-all placeholder:text-slate-400 hover:border-slate-300 dark:hover:border-slate-600 text-slate-800 dark:text-slate-200"
