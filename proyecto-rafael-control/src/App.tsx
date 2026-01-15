@@ -26,7 +26,6 @@ import DepartamentosM from "./pages/Manager/DepartamentosM";
 import Unauthorized from './pages/Unauthorized';
 import NotFound from './pages/NotFound';
 import InactiveAccount from './pages/InactiveAccount'; // <--- IMPORTANTE
-import { useTheme } from "next-themes";
 
 // --- CONSTANTES ---
 const ROLES = {

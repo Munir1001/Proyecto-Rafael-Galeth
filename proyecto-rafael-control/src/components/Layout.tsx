@@ -12,7 +12,6 @@ import {
     X,
     ChevronLeft,
     ChevronRight,
-    Search,
     Bell,
     Building,
     Workflow,

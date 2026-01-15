@@ -145,33 +145,33 @@ const StatCard = ({ title, value, icon: Icon, color, subtext, trend, onClick }: 
   <div
     onClick={onClick}
     className={`
-      group relative bg-white dark:bg-slate-800 rounded-xl p-4 md:p-5 shadow-sm hover:shadow-md 
+      group relative bg-white dark:bg-slate-800 rounded-xl p-3 sm:p-4 md:p-5 shadow-sm hover:shadow-md 
       border border-slate-200 dark:border-slate-700 transition-all duration-300
       cursor-pointer overflow-hidden
       ${onClick ? 'hover:bg-slate-50 dark:hover:bg-slate-750' : ''}
     `}
   >
-    <div className="flex justify-between items-start">
-      <div className="flex-1">
-        <div className="flex items-center gap-2 mb-2">
-          <p className="text-slate-600 dark:text-slate-400 text-xs md:text-sm font-medium uppercase tracking-wider">{title}</p>
+        <div className="flex justify-between items-start">
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 mb-2 flex-wrap">
+          <p className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm font-medium uppercase tracking-wider truncate">{title}</p>
           {trend && (
-            <span className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-medium ${trend.isPositive ? 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300' : 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300'}`}>
+            <span className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-medium flex-shrink-0 ${trend.isPositive ? 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300' : 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300'}`}>
               {trend.isPositive ? <ArrowUp size={10} /> : <ArrowDown size={10} />}
               {trend.value}%
             </span>
           )}
         </div>
-        <h3 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white tracking-tight">
+        <h3 className="text-xl sm:text-2xl md:text-3xl font-bold text-slate-900 dark:text-white tracking-tight truncate">
           {value}
         </h3>
         {subtext && (
-          <p className="text-xs md:text-sm text-slate-500 dark:text-slate-400 mt-1">{subtext}</p>
+          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1 truncate">{subtext}</p>
         )}
       </div>
 
-      <div className="p-2 md:p-2.5 rounded-lg bg-slate-50 dark:bg-slate-700">
-        <Icon size={18} className="text-slate-600 dark:text-slate-400 md:w-5 md:h-5" />
+      <div className="p-2 sm:p-2.5 rounded-lg bg-slate-50 dark:bg-slate-700 flex-shrink-0">
+        <Icon size={16} className="text-slate-600 dark:text-slate-400 sm:w-5 sm:h-5" />
       </div>
     </div>
   </div>
@@ -636,7 +636,7 @@ const AdminView = () => {
 
 
       {/* KPIs Principales */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
       <StatCard
     title="Total Tareas"
     value={analytics.total}
@@ -683,7 +683,7 @@ const AdminView = () => {
 </div>
 
       {/* KPIs Secundarios */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
         <StatCard
           title="Usuarios Activos"
           value={data.usuarios.length}
@@ -729,21 +729,21 @@ const AdminView = () => {
       </div>
 
       {/* Gráficos Principales */}
-      {/* Tendencia Semanal */}
-      <div className="lg:col-span-2">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+        {/* Tendencia Semanal */}
         <Card className="shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md transition-shadow duration-300 bg-white dark:bg-slate-800">
-          <div className="flex items-center gap-3 mb-6">
-            <Activity size={18} className="text-slate-600 dark:text-slate-400" />
-            <div>
-              <h5 className="text-lg font-bold text-slate-900 dark:text-white">Actividad Semanal</h5>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Tendencias duales de creación y finalización</p>
+          <div className="flex items-center gap-3 mb-4 sm:mb-6">
+            <Activity size={16} className="text-slate-600 dark:text-slate-400 flex-shrink-0" />
+            <div className="min-w-0">
+              <h5 className="text-sm sm:text-lg font-bold text-slate-900 dark:text-white truncate">Actividad Semanal</h5>
+              <p className="text-xs text-slate-500 dark:text-slate-400 truncate">Tendencias de creación y finalización</p>
             </div>
           </div>
           <PerformanceChart
             data={analytics.tendenciaSemanal}
             title=""
             type="line"
-            height={280}
+            height={250}
             colors={['#1E40AF', '#166534']}
             enable3D
             animationDuration={2000}
@@ -755,90 +755,92 @@ const AdminView = () => {
             subtitle=""
           />
         </Card>
-      </div>
 
-      {/* Distribución por Estado */}
-      <Card className="shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md transition-shadow duration-300 bg-white dark:bg-slate-800">
-        <div className="flex items-center gap-3 mb-6">
-          <PieChartIcon size={18} className="text-slate-600 dark:text-slate-400" />
-          <div>
-            <h5 className="text-lg font-bold text-slate-900 dark:text-white">Distribución por Estado</h5>
-            <p className="text-xs text-slate-500 dark:text-slate-400">Análisis detallado por estado</p>
-          </div>
-        </div>
-        <PerformanceChart
-          data={analytics.distribucionEstados}
-          title=""
-          type="pie"
-          height={280}
-          colors={analytics.distribucionEstados.map(d => d.color)}
-          enable3D
-          animationDuration={1800}
-          showLegend
-          subtitle=""
-          tooltipFormatter={(value, name) => [`${value} tareas`, name]}
-        />
-      </Card>
-
-      {/* Rendimiento por Departamento */}
-      <Card className="shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md transition-shadow duration-300 bg-white dark:bg-slate-800">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-3">
-            <Briefcase size={18} className="text-slate-600 dark:text-slate-400" />
-            <div>
-              <h5 className="text-lg font-bold text-slate-900 dark:text-white">Rendimiento por Departamento</h5>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Análisis comparativo apilado</p>
+        {/* Distribución por Estado */}
+        <Card className="shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md transition-shadow duration-300 bg-white dark:bg-slate-800">
+          <div className="flex items-center gap-3 mb-4 sm:mb-6">
+            <PieChartIcon size={16} className="text-slate-600 dark:text-slate-400 flex-shrink-0" />
+            <div className="min-w-0">
+              <h5 className="text-sm sm:text-lg font-bold text-slate-900 dark:text-white truncate">Distribución por Estado</h5>
+              <p className="text-xs text-slate-500 dark:text-slate-400 truncate">Análisis detallado por estado</p>
             </div>
           </div>
-        </div>
-        <PerformanceChart
-          data={analytics.rendimientoDepartamentos}
-          title=""
-          type="bar"
-          height={300}
-          colors={['#64748B', '#166534', '#991B1B']}
-          enable3D
-          animationDuration={1900}
-          dataKeys={['total', 'completadas', 'vencidas']}
-          xAxisKey="name"
-          showLegend={false}
-          stacked
-          tooltipFormatter={(value, name) => {
-            const labels = {
-              'total': 'Total Tareas',
-              'completadas': 'Completadas',
-              'vencidas': 'Vencidas'
-            };
-            return [value.toString(), labels[name as keyof typeof labels]];
-          }}
-          subtitle=""
-        />
-      </Card>
+          <PerformanceChart
+            data={analytics.distribucionEstados}
+            title=""
+            type="pie"
+            height={250}
+            colors={analytics.distribucionEstados.map(d => d.color)}
+            enable3D
+            animationDuration={1800}
+            showLegend
+            subtitle=""
+            tooltipFormatter={(value, name) => [`${value} tareas`, name]}
+          />
+        </Card>
+      </div>
 
-      {/* Distribución por Prioridad */}
-      <Card className="shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md transition-shadow duration-300 bg-white dark:bg-slate-800">
-        <div className="flex items-center gap-3 mb-6">
-          <Target size={18} className="text-slate-600 dark:text-slate-400" />
-          <div>
-            <h5 className="text-lg font-bold text-slate-900 dark:text-white">Tareas por Prioridad</h5>
-            <p className="text-xs text-slate-500 dark:text-slate-400">Análisis por nivel de urgencia</p>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+        {/* Rendimiento por Departamento */}
+        <Card className="shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md transition-shadow duration-300 bg-white dark:bg-slate-800">
+          <div className="flex items-center justify-between mb-4 sm:mb-6">
+            <div className="flex items-center gap-3 min-w-0">
+              <Briefcase size={16} className="text-slate-600 dark:text-slate-400 flex-shrink-0" />
+              <div className="min-w-0">
+                <h5 className="text-sm sm:text-lg font-bold text-slate-900 dark:text-white truncate">Rendimiento por Departamento</h5>
+                <p className="text-xs text-slate-500 dark:text-slate-400 truncate">Análisis comparativo apilado</p>
+              </div>
+            </div>
           </div>
-        </div>
-        <PerformanceChart
-          data={analytics.distribucionPrioridades}
-          title=""
-          type="bar"
-          height={200}
-          colors={analytics.distribucionPrioridades.map(p => p.color)}
-          enable3D
-          animationDuration={1700}
-          showDataLabels
-          xAxisKey="name"
-          yAxisKey="value"
-          subtitle=""
-          tooltipFormatter={(value, name) => [ `${value} tareas`, "Cantidad" ]}
-        />
-      </Card>
+          <PerformanceChart
+            data={analytics.rendimientoDepartamentos}
+            title=""
+            type="bar"
+            height={250}
+            colors={['#64748B', '#166534', '#991B1B']}
+            enable3D
+            animationDuration={1900}
+            dataKeys={['total', 'completadas', 'vencidas']}
+            xAxisKey="name"
+            showLegend={false}
+            stacked
+            tooltipFormatter={(value, name) => {
+              const labels = {
+                'total': 'Total Tareas',
+                'completadas': 'Completadas',
+                'vencidas': 'Vencidas'
+              };
+              return [value.toString(), labels[name as keyof typeof labels]];
+            }}
+            subtitle=""
+          />
+        </Card>
+
+        {/* Distribución por Prioridad */}
+        <Card className="shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md transition-shadow duration-300 bg-white dark:bg-slate-800">
+          <div className="flex items-center gap-3 mb-4 sm:mb-6">
+            <Target size={16} className="text-slate-600 dark:text-slate-400 flex-shrink-0" />
+            <div className="min-w-0">
+              <h5 className="text-sm sm:text-lg font-bold text-slate-900 dark:text-white truncate">Tareas por Prioridad</h5>
+              <p className="text-xs text-slate-500 dark:text-slate-400 truncate">Análisis por nivel de urgencia</p>
+            </div>
+          </div>
+          <PerformanceChart
+            data={analytics.distribucionPrioridades}
+            title=""
+            type="bar"
+            height={250}
+            colors={analytics.distribucionPrioridades.map(p => p.color)}
+            enable3D
+            animationDuration={1700}
+            showDataLabels
+            xAxisKey="name"
+            yAxisKey="value"
+            subtitle=""
+            tooltipFormatter={(value, name) => [ `${value} tareas`, "Cantidad" ]}
+          />
+        </Card>
+      </div>
     </div>
   );
 };
@@ -1179,7 +1181,7 @@ const ManagerView = () => {
 
 
       {/* KPIs Manager */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
         <StatCard
           title="Mi Equipo"
           value={data.usuarios.length}
@@ -1207,62 +1209,64 @@ const ManagerView = () => {
       </div>
 
 
-      {/* Tendencia 30 días */}
-      <Card className="shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md transition-shadow duration-300 bg-white dark:bg-slate-800">
-        <div className="flex items-center gap-3 mb-6">
-          <TrendingUp size={18} className="text-slate-600 dark:text-slate-400" />
-          <div>
-            <h5 className="text-lg font-bold text-slate-900 dark:text-white">Completadas - Últimos 30 Días</h5>
-            <p className="text-xs text-slate-500 dark:text-slate-400">Evolución diaria con progreso</p>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+        {/* Tendencia 30 días */}
+        <Card className="shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md transition-shadow duration-300 bg-white dark:bg-slate-800">
+          <div className="flex items-center gap-3 mb-4 sm:mb-6">
+            <TrendingUp size={16} className="text-slate-600 dark:text-slate-400 flex-shrink-0" />
+            <div className="min-w-0">
+              <h5 className="text-sm sm:text-lg font-bold text-slate-900 dark:text-white truncate">Completadas - Últimos 30 Días</h5>
+              <p className="text-xs text-slate-500 dark:text-slate-400 truncate">Evolución diaria con progreso</p>
+            </div>
           </div>
-        </div>
-        {analytics.tendencia30Dias.length > 0 && (
-          <PerformanceChart
-            data={analytics.tendencia30Dias}
-            title=""
-            type="area"
-            height={280}
-            color="#3730A3"
-            gradient
-            enable3D
-            animationDuration={2000}
-            subtitle=""
-            tooltipFormatter={(value) => [`${value} tareas`, 'Completadas']}
-            showDataLabels
-          />
-        )}
-      </Card>
+          {analytics.tendencia30Dias.length > 0 && (
+            <PerformanceChart
+              data={analytics.tendencia30Dias}
+              title=""
+              type="area"
+              height={250}
+              color="#3730A3"
+              gradient
+              enable3D
+              animationDuration={2000}
+              subtitle=""
+              tooltipFormatter={(value) => [`${value} tareas`, 'Completadas']}
+              showDataLabels
+            />
+          )}
+        </Card>
 
-      {/* Distribución de Estados */}
-      <Card className="shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md transition-shadow duration-300 bg-white dark:bg-slate-800">
-        <div className="flex items-center gap-3 mb-6">
-          <PieChartIcon size={18} className="text-slate-600 dark:text-slate-400" />
-          <div>
-            <h5 className="text-lg font-bold text-slate-900 dark:text-white">Estado de las Tareas</h5>
-            <p className="text-xs text-slate-500 dark:text-slate-400">Distribución actual con detalles</p>
+        {/* Distribución de Estados */}
+        <Card className="shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md transition-shadow duration-300 bg-white dark:bg-slate-800">
+          <div className="flex items-center gap-3 mb-4 sm:mb-6">
+            <PieChartIcon size={16} className="text-slate-600 dark:text-slate-400 flex-shrink-0" />
+            <div className="min-w-0">
+              <h5 className="text-sm sm:text-lg font-bold text-slate-900 dark:text-white truncate">Estado de las Tareas</h5>
+              <p className="text-xs text-slate-500 dark:text-slate-400 truncate">Distribución actual con detalles</p>
+            </div>
           </div>
-        </div>
-        <PerformanceChart
-          data={analytics.distribucionEstados}
-          title=""
-          type="pie"
-          height={280}
-          colors={analytics.distribucionEstados.map(d => d.color)}
-          enable3D
-          animationDuration={1800}
-          showLegend
-          subtitle=""
-          tooltipFormatter={(value, name) => [`${value} tareas`, name]}
-        />
-      </Card>
+          <PerformanceChart
+            data={analytics.distribucionEstados}
+            title=""
+            type="pie"
+            height={250}
+            colors={analytics.distribucionEstados.map(d => d.color)}
+            enable3D
+            animationDuration={1800}
+            showLegend
+            subtitle=""
+            tooltipFormatter={(value, name) => [`${value} tareas`, name]}
+          />
+        </Card>
+      </div>
 
       {/* Gráfico de Rendimiento vs Tasa de Éxito */}
       <Card className="shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md transition-shadow duration-300 bg-white dark:bg-slate-800">
-        <div className="flex items-center gap-3 mb-6">
-          <Target size={18} className="text-slate-600 dark:text-slate-400" />
-          <div>
-            <h5 className="text-lg font-bold text-slate-900 dark:text-white">Rendimiento vs Tasa de Éxito</h5>
-            <p className="text-xs text-slate-500 dark:text-slate-400">Análisis multidimensional del equipo</p>
+        <div className="flex items-center gap-3 mb-4 sm:mb-6">
+          <Target size={16} className="text-slate-600 dark:text-slate-400 flex-shrink-0" />
+          <div className="min-w-0">
+            <h5 className="text-sm sm:text-lg font-bold text-slate-900 dark:text-white truncate">Rendimiento vs Tasa de Éxito</h5>
+            <p className="text-xs text-slate-500 dark:text-slate-400 truncate">Análisis multidimensional del equipo</p>
           </div>
         </div>
         {analytics.performanceMiembros.length > 0 && (
@@ -1275,7 +1279,7 @@ const ManagerView = () => {
             }))}
             title=""
             type="scatter"
-            height={300}
+            height={250}
             color="#3730A3"
             enable3D
             animationDuration={2200}
@@ -1561,7 +1565,7 @@ const UserView = () => {
 
 
       {/* KPIs Usuario - Diseño profesional */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
         {/* Helper para formatear dinero */}
         {(() => {
           const formatMoney = (amount: number) =>
@@ -1611,7 +1615,7 @@ const UserView = () => {
       </div>
 
       {/* Estadísticas Adicionales */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 md:gap-6">
         <Card className="shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md transition-all duration-300 bg-white dark:bg-slate-800">
           <div className="flex items-center justify-between">
             <div>
@@ -1653,21 +1657,21 @@ const UserView = () => {
       </div>
 
       {/* Gráficos Usuario */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         {/* Progreso Semanal */}
         <Card className="shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md transition-shadow duration-300 bg-white dark:bg-slate-800">
-          <div className="flex items-center gap-3 mb-6">
-            <TrendingUp size={18} className="text-slate-600 dark:text-slate-400" />
-            <div>
-              <h5 className="text-lg font-bold text-slate-900 dark:text-white">Mi Progreso Semanal</h5>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Tareas completadas por día con métricas</p>
+          <div className="flex items-center gap-3 mb-4 sm:mb-6">
+            <TrendingUp size={16} className="text-slate-600 dark:text-slate-400 flex-shrink-0" />
+            <div className="min-w-0">
+              <h5 className="text-sm sm:text-lg font-bold text-slate-900 dark:text-white truncate">Mi Progreso Semanal</h5>
+              <p className="text-xs text-slate-500 dark:text-slate-400 truncate">Tareas completadas por día</p>
             </div>
           </div>
           <PerformanceChart
             data={analytics.progresoSemanal}
             title=""
             type="bar"
-            height={280}
+            height={250}
             color="#065F46"
             radius={[8, 8, 0, 0]}
             enable3D
@@ -1680,18 +1684,18 @@ const UserView = () => {
 
         {/* Distribución por Prioridad */}
         <Card className="shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md transition-shadow duration-300 bg-white dark:bg-slate-800">
-          <div className="flex items-center gap-3 mb-6">
-            <Target size={18} className="text-slate-600 dark:text-slate-400" />
-            <div>
-              <h5 className="text-lg font-bold text-slate-900 dark:text-white">Tareas por Prioridad</h5>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Distribución con análisis detallado</p>
+          <div className="flex items-center gap-3 mb-4 sm:mb-6">
+            <Target size={16} className="text-slate-600 dark:text-slate-400 flex-shrink-0" />
+            <div className="min-w-0">
+              <h5 className="text-sm sm:text-lg font-bold text-slate-900 dark:text-white truncate">Tareas por Prioridad</h5>
+              <p className="text-xs text-slate-500 dark:text-slate-400 truncate">Distribución con análisis detallado</p>
             </div>
           </div>
           <PerformanceChart
             data={analytics.distribucionPrioridad}
             title=""
             type="pie"
-            height={280}
+            height={250}
             colors={analytics.distribucionPrioridad.map(p => p.color)}
             enable3D
             animationDuration={1700}
@@ -1704,17 +1708,17 @@ const UserView = () => {
 
       {/* Próximos Vencimientos */}
       <Card className="shadow-sm border border-slate-100 dark:border-slate-700 hover:shadow-md transition-shadow duration-300 bg-white dark:bg-slate-800">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-orange-100 dark:bg-orange-900/30">
-              <Clock size={18} className="text-orange-600 dark:text-orange-400" />
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4 sm:mb-6">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="p-2 rounded-lg bg-orange-100 dark:bg-orange-900/30 flex-shrink-0">
+              <Clock size={16} className="text-orange-600 dark:text-orange-400" />
             </div>
-            <div>
-              <h5 className="text-lg font-bold text-slate-900 dark:text-white">Próximos Vencimientos</h5>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Tareas pendientes próximas</p>
+            <div className="min-w-0">
+              <h5 className="text-sm sm:text-lg font-bold text-slate-900 dark:text-white truncate">Próximos Vencimientos</h5>
+              <p className="text-xs text-slate-500 dark:text-slate-400 truncate">Tareas pendientes próximas</p>
             </div>
           </div>
-          <Badge color="info">{analytics.proximosVencimientos.length} pendientes</Badge>
+          <Badge color="info" className="flex-shrink-0">{analytics.proximosVencimientos.length} pendientes</Badge>
         </div>
 
         <div className="space-y-3">
@@ -1735,7 +1739,7 @@ const UserView = () => {
                   `}
                 >
                   <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-3">
-                    <h6 className="font-bold text-slate-900 dark:text-white text-sm md:text-base">{tarea.titulo}</h6>
+                    <h6 className="font-bold text-slate-900 dark:text-white text-sm truncate flex-1">{tarea.titulo}</h6>
                     <Badge
                       color={tarea.prioridad?.nombre === 'Urgente' ? 'failure' : tarea.prioridad?.nombre === 'Alta' ? 'warning' : 'info'}
                       size="sm"
@@ -1746,10 +1750,10 @@ const UserView = () => {
                   </div>
 
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between text-sm gap-2">
-                    <span className="text-slate-600 dark:text-slate-400">
+                    <span className="text-slate-600 dark:text-slate-400 truncate">
                       Vence: <span className="font-medium">{formatDate(tarea.fecha_fin)}</span>
                     </span>
-                    <span className={`font-bold px-3 py-1 rounded-full text-xs ${diasRestantes <= 0
+                    <span className={`font-bold px-3 py-1 rounded-full text-xs flex-shrink-0 ${diasRestantes <= 0
                       ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
                       : diasRestantes <= 2
                         ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400'
@@ -1783,18 +1787,18 @@ const UserView = () => {
       {/* Evolución del Rendimiento */}
       {analytics.rendimientoMensual.length > 0 && (
         <Card className="shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md transition-shadow duration-300 bg-white dark:bg-slate-800">
-          <div className="flex items-center gap-3 mb-6">
-            <BarChart2 size={18} className="text-slate-600 dark:text-slate-400" />
-            <div>
-              <h5 className="text-lg font-bold text-slate-900 dark:text-white">Evolución de Mi Rendimiento</h5>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Análisis de rendimiento mensual</p>
+          <div className="flex items-center gap-3 mb-4 sm:mb-6">
+            <BarChart2 size={16} className="text-slate-600 dark:text-slate-400 flex-shrink-0" />
+            <div className="min-w-0">
+              <h5 className="text-sm sm:text-lg font-bold text-slate-900 dark:text-white truncate">Evolución de Mi Rendimiento</h5>
+              <p className="text-xs text-slate-500 dark:text-slate-400 truncate">Análisis de rendimiento mensual</p>
             </div>
           </div>
           <PerformanceChart
             data={analytics.rendimientoMensual}
             title=""
             type="composed"
-            height={300}
+            height={250}
             colors={['#3730A3', '#065F46']}
             enable3D
             animationDuration={2100}

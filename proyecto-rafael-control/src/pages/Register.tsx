@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
-import { UserPlus, CheckCircle, AlertCircle, Eye, EyeOff, Mail, Clock, LogIn } from 'lucide-react';
+import { UserPlus, CheckCircle, AlertCircle, Eye, EyeOff, Mail, LogIn } from 'lucide-react';
 
 export default function Register() {
     const navigate = useNavigate();
@@ -98,13 +98,13 @@ export default function Register() {
     const strengthText = ["Muy débil", "Débil", "Media", "Fuerte", "Segura"];
 
     return (
-        // COMPACTO: h-screen y overflow-hidden aseguran que no haya scroll en la ventana principal
-        <div className="h-screen flex bg-slate-50 overflow-hidden font-sans">
+        // COMPACTO: h-screen y overflow-hidden aseguren que no haya scroll en la ventana principal
+        <div className="min-h-screen flex bg-slate-50 overflow-x-hidden font-sans">
 
             {/* Modal de Éxito (Sin cambios estructurales) */}
             {showSuccessModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm animate-fade-in">
-                    <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 relative border border-slate-200">
+                    <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full mx-4 p-6 relative border border-slate-200">
                         <div className="text-center">
                             <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-gradient-to-br from-emerald-50 to-emerald-100 mb-4 ring-4 ring-emerald-100/50">
                                 <div className="flex flex-col items-center">
@@ -152,26 +152,26 @@ export default function Register() {
                     src="https://images.unsplash.com/photo-1497366216548-37526070297c?q=80&w=2069&auto=format&fit=crop"
                     alt="Office Background"
                 />
-                <div className="absolute bottom-0 left-0 right-0 p-12 text-white z-20">
-                    <h3 className="text-3xl font-bold mb-4 leading-tight">
+                <div className="absolute bottom-0 left-0 right-0 p-8 sm:p-12 text-white z-20">
+                    <h3 className="text-2xl sm:text-3xl font-bold mb-4 leading-tight">
                         Gestión Institucional <br /> Eficiente
                     </h3>
-                    <p className="text-base text-gray-200 max-w-lg">
+                    <p className="text-sm sm:text-base text-gray-200 max-w-lg">
                         Acceso seguro y centralizado para la administración de recursos.
                     </p>
                 </div>
             </div>
 
             {/* SECCIÓN DERECHA - Formulario Compacto */}
-            <div className="flex-1 flex items-center justify-center px-6 bg-white overflow-hidden">
-                <div className="w-full max-w-md flex flex-col justify-center h-full max-h-screen py-4">
+            <div className="flex-1 flex items-center justify-center px-4 sm:px-6 bg-white overflow-hidden">
+                <div className="w-full max-w-sm sm:max-w-md flex flex-col justify-center min-h-screen sm:min-h-0 sm:h-full sm:max-h-screen py-4 sm:py-6">
 
                     {/* Encabezado más compacto (mb-4 en lugar de mb-8) */}
-                    <div className="mb-4 text-center shrink-0">
-                        <h2 className="text-2xl font-bold tracking-tight text-slate-900 mb-1 bg-linear-to-r from-slate-800 to-slate-600 bg-clip-text">
+                    <div className="mb-4 sm:mb-6 text-center shrink-0">
+                        <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 mb-1 bg-linear-to-r from-slate-800 to-slate-600 bg-clip-text">
                             Crear Cuenta Institucional
                         </h2>
-                        <p className="text-slate-500 text-xs leading-relaxed">
+                        <p className="text-slate-500 text-xs sm:text-sm leading-relaxed">
                             Complete el formulario para acceder al sistema.
                         </p>
                     </div>
@@ -194,9 +194,10 @@ export default function Register() {
                                 required
                                 value={formData.nombre_completo}
                                 onChange={handleChange}
-                                className={`w-full px-3 py-2 text-sm bg-slate-50 border rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500 transition-all outline-none text-slate-900 placeholder-slate-400 ${formData.nombre_completo && !validateName(formData.nombre_completo) ? 'border-red-300' : 'border-slate-200'
+                                className={`w-full px-3 py-2.5 text-sm bg-slate-50 border rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500 transition-all outline-none text-slate-900 placeholder-slate-400 ${formData.nombre_completo && !validateName(formData.nombre_completo) ? 'border-red-300' : 'border-slate-200'
                                     }`}
                                 placeholder="Nombres y Apellidos completos"
+                                autoComplete="name"
                             />
                             {formData.nombre_completo && !validateName(formData.nombre_completo) && (
                                 <p className="text-[10px] text-red-500 mt-0.5">
@@ -206,7 +207,7 @@ export default function Register() {
                         </div>
 
                         {/* Grid más ajustado (gap-3) */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
                                 <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wide mb-1">Correo</label>
                                 <input
@@ -215,8 +216,9 @@ export default function Register() {
                                     required
                                     value={formData.email}
                                     onChange={handleChange}
-                                    className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500 transition-all outline-none text-slate-900 placeholder-slate-400"
+                                    className="w-full px-3 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500 transition-all outline-none text-slate-900 placeholder-slate-400"
                                     placeholder="usuario@ejemplo.com"
+                                    autoComplete="email"
                                 />
                             </div>
                             <div>
@@ -231,8 +233,9 @@ export default function Register() {
                                             setFormData({ ...formData, telefono: e.target.value });
                                         }
                                     }}
-                                    className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500 transition-all outline-none text-slate-900 placeholder-slate-400"
+                                    className="w-full px-3 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500 transition-all outline-none text-slate-900 placeholder-slate-400"
                                     placeholder="099..."
+                                    autoComplete="tel"
                                 />
                             </div>
                         </div>
@@ -248,8 +251,9 @@ export default function Register() {
                                     minLength={8}
                                     value={formData.password}
                                     onChange={handleChange}
-                                    className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500 transition-all outline-none text-slate-900 placeholder-slate-400 pr-10 [&::-ms-reveal]:hidden [&::-ms-clear]:hidden"
+                                    className="w-full px-3 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500 transition-all outline-none text-slate-900 placeholder-slate-400 pr-10 [&::-ms-reveal]:hidden [&::-ms-clear]:hidden"
                                     placeholder="••••••••"
+                                    autoComplete="new-password"
                                 />
                                 <button
                                     type="button"
@@ -285,7 +289,7 @@ export default function Register() {
                         <button
                             type="submit"
                             disabled={loading || strengthScore < 3}
-                            className="w-full flex items-center justify-center px-4 py-2.5 bg-linear-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white font-bold rounded-xl shadow-lg shadow-indigo-500/25 hover:shadow-xl focus:ring-4 focus:ring-indigo-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 mt-4 transform hover:scale-105 disabled:hover:scale-100 text-sm"
+                            className="w-full flex items-center justify-center px-4 py-2.5 bg-linear-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white font-bold rounded-xl shadow-lg shadow-indigo-500/25 hover:shadow-xl focus:ring-4 focus:ring-indigo-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 mt-4 transform hover:scale-105 disabled:hover:scale-100 text-sm mobile-button"
                         >
                             {loading ? (
                                 <div className="flex items-center gap-2">
@@ -295,21 +299,21 @@ export default function Register() {
                             ) : (
                                 <div className="flex items-center gap-2">
                                     <UserPlus className="h-4 w-4" />
-                                    <span className="font-semibold">Crear Cuenta</span>
+                                    <span className="font-semibold text-sm">Crear Cuenta</span>
                                 </div>
                             )}
                         </button>
                     </form>
 
-                    <div className="text-center mt-8 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg shrink-0">
+                    <div className="text-center mt-6 sm:mt-8 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg shrink-0">
                         <p className="text-xs text-slate-600 dark:text-slate-400 mb-1">
                             ¿Posees una cuenta institucional?
                         </p>
                         <Link
                             to="/login"
-                            className="inline-flex items-center gap-2 font-semibold text-indigo-600 hover:text-indigo-800 transition-colors hover:underline text-sm"
+                            className="inline-flex items-center gap-2 font-semibold text-indigo-600 hover:text-indigo-800 transition-colors hover:underline text-sm mobile-button"
                         >
-                            <LogIn className="h-4 w-4" /> Iniciar Sesión
+                            <LogIn className="h-4 w-4" /> <span className="text-xs sm:text-sm">Iniciar Sesión</span>
                         </Link>
                     </div>
                 </div>
