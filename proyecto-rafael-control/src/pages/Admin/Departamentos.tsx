@@ -249,11 +249,15 @@ export default function Departamentos() {
                             </div>
 
                             <div>
-                                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-linear-to-r from-indigo-600 to-blue-800 bg-clip-text text-transparent">
-                                    Departamentos
+            <h1 className="
+  text-2xl sm:text-3xl lg:text-4xl font-bold
+  bg-gradient-to-r from-indigo-600 to-blue-800
+  bg-clip-text text-transparent
+  dark:bg-gradient-to-r dark:from-indigo-300 dark:via-blue-200 dark:to-purple-300
+  dark:text-transparent
+">                                        Departamentos
                                 </h1>
                                 <p className="text-slate-600 dark:text-slate-400 mt-1 flex items-center gap-2 text-sm">
-                                    <Users className="h-4 w-4" />
                                     Gestión de áreas
                                 </p>
                             </div>

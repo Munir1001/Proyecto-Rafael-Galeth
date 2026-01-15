@@ -354,11 +354,15 @@ export default function Usuarios() {
                                 <Users className="h-8 w-8 text-white" />
                             </div>
                             <div>
-                                <h1 className="text-4xl font-bold bg-linear-to-r from-indigo-600 to-blue-800 bg-clip-text text-transparent">
-                                    Gestión de Usuarios
+            <h1 className="
+  text-2xl sm:text-3xl lg:text-4xl font-bold
+  bg-gradient-to-r from-indigo-600 to-blue-800
+  bg-clip-text text-transparent
+  dark:bg-gradient-to-r dark:from-indigo-300 dark:via-blue-200 dark:to-purple-300
+  dark:text-transparent
+">                                    Gestión de Usuarios
                                 </h1>
                                 <p className="text-slate-600 dark:text-slate-400 mt-1 flex items-center gap-2">
-                                    <Users className="h-4 w-4" />
                                     Administra el acceso, roles y departamentos del personal
                                 </p>
                             </div>
@@ -439,32 +443,19 @@ export default function Usuarios() {
 
                     {/* Filtro por Departamento */}
                     <div className="relative w-full md:w-72 group">
-                        <select
-                            value={selectedDept}
-                            onChange={(e) => setSelectedDept(e.target.value)}
-                            className="w-full h-12 pl-14 pr-10 rounded-xl
-    border border-slate-200 dark:border-slate-700
-    bg-white dark:bg-slate-800
-    text-sm font-medium text-slate-700 dark:text-white
-    leading-none pt-[1px]
-    focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 dark:focus:ring-indigo-900/50
-    appearance-none cursor-pointer
-    transition-all shadow-sm hover:shadow-md"
-                        >
-
-                            <option value="">Todos los Departamentos.</option>
-                            {departamentos.map(dept => (
-                                <option key={dept.id} value={dept.id}>
-                                    {dept.nombre}
-                                </option>
-                            ))}
-                        </select>
-
-                        {/* Flecha derecha (Chevron) */}
-                        <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none z-10">
-                            <ChevronDown className="h-4 w-4 text-slate-400" />
-                        </div>
-                    </div>
+  <Select
+    value={selectedDept}
+    onChange={(e) => setSelectedDept(e.target.value)}
+    className="rounded-xl"
+  >
+    <option value="">Todos los Departamentos</option>
+    {departamentos.map(dept => (
+      <option key={dept.id} value={dept.id}>
+        {dept.nombre}
+      </option>
+    ))}
+  </Select>
+</div>
 
                 </div>
 

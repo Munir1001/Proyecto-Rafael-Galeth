@@ -229,11 +229,15 @@ export default function Roles() {
                                 <ShieldCheck className="h-6 w-6 sm:h-8 sm:w-8 text-white" />
                             </div>
                             <div>
-                                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-linear-to-r from-indigo-600 to-blue-800 bg-clip-text text-transparent">
-                                    Roles
+            <h1 className="
+  text-2xl sm:text-3xl lg:text-4xl font-bold
+  bg-gradient-to-r from-indigo-600 to-blue-800
+  bg-clip-text text-transparent
+  dark:bg-gradient-to-r dark:from-indigo-300 dark:via-blue-200 dark:to-purple-300
+  dark:text-transparent
+">                                        Roles
                                 </h1>
                                 <p className="text-slate-500 flex items-center gap-2 text-sm">
-                                    <Users className="h-4 w-4" />
                                     Control de permisos y accesos
                                 </p>
                             </div>
@@ -264,54 +268,64 @@ export default function Roles() {
                 </div>
 
                 {/* CARDS */}
-                {loading ? (
-                    <div className="flex justify-center py-20">
-                        <Spinner size="xl" />
-                    </div>
-                ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        {filtered.map((rol) => (
-                            <div
-                                key={rol.id}
-                                className="group bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300"
-                            >
-                                <div className="flex justify-between items-start">
-                                    <div>
-                                        <h3 className="text-xl font-bold text-slate-900 dark:text-white">
-                                            {rol.nombre}
-                                        </h3>
-                                        <p className="text-slate-500 text-sm mt-1">
-                                            {rol.descripcion || "Sin descripción"}
-                                        </p>
-                                    </div>
-                                    <ShieldCheck className="text-indigo-500" />
-                                </div>
+{loading ? (
+  <div className="flex justify-center py-20">
+    <Spinner size="xl" />
+  </div>
+) : (
+  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+    {filtered.map((rol) => {
+      const count = rol.usuarios_count ?? 0;
+      const textoUsuarios =
+        count === 0
+          ? "Ningún usuario asignado"
+          : count === 1
+            ? "1 usuario asignado"
+            : `${count} usuarios asignados`;
 
-                                <div className="mt-4 flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-900 p-2 rounded-lg w-fit">
-                                    <Users className="h-4 w-4" />
-                                    {rol.usuarios_count} usuarios asignados
-                                </div>
+      return (
+        <div
+          key={rol.id}
+          className="group bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300"
+        >
+          <div className="flex justify-between items-start">
+            <div>
+              <h3 className="text-xl font-bold text-slate-900 dark:text-white">
+                {rol.nombre}
+              </h3>
+              <p className="text-slate-500 text-sm mt-1">
+                {rol.descripcion || "Sin descripción"}
+              </p>
+            </div>
+            <ShieldCheck className="text-indigo-500" />
+          </div>
 
-                                <div className="mt-6 flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                                    <button
-                                        onClick={() => openModal(rol)}
-                                        className="p-2 text-indigo-600 hover:bg-indigo-100 dark:hover:bg-indigo-900/20 rounded-lg transition"
-                                        title="Editar"
-                                    >
-                                        <Edit2 size={18} />
-                                    </button>
-                                    <button
-                                        onClick={() => deleteRol(rol)}
-                                        className="p-2 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/20 rounded-lg transition"
-                                        title="Eliminar"
-                                    >
-                                        <Trash2 size={18} />
-                                    </button>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                )}
+          <div className="mt-4 flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-900 p-2 rounded-lg w-fit">
+            <Users className="h-4 w-4" />
+            {textoUsuarios}
+          </div>
+
+          <div className="mt-6 flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+            <button
+              onClick={() => openModal(rol)}
+              className="p-2 text-indigo-600 hover:bg-indigo-100 dark:hover:bg-indigo-900/20 rounded-lg transition"
+              title="Editar"
+            >
+              <Edit2 size={18} />
+            </button>
+            <button
+              onClick={() => deleteRol(rol)}
+              className="p-2 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/20 rounded-lg transition"
+              title="Eliminar"
+            >
+              <Trash2 size={18} />
+            </button>
+          </div>
+        </div>
+      );
+    })}
+  </div>
+)}
             </div>
 
             {/* MODAL ANIMADO */}
@@ -334,12 +348,13 @@ export default function Roles() {
 
                         <form onSubmit={saveRol} className="p-8 space-y-6">
                             <div className="space-y-2">
-                                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Nombre del Rol</label>
+                                <label htmlFor="nombre-rol" className="text-sm font-medium text-slate-700 dark:text-slate-300">Nombre del Rol</label>
                                 <input
                                     required
+                                    id="nombre-rol"
                                     placeholder="Ej. Administrador, Editor"
                                     className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 dark:border-slate-600 dark:bg-slate-900 focus:border-indigo-500 focus:ring-0 transition"
-                                    disabled
+                                    readOnly
                                     value={form.nombre}
                                     onChange={(e) =>
                                         setForm({ ...form, nombre: e.target.value })

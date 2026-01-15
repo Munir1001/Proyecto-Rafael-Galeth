@@ -241,11 +241,15 @@ export default function EstadosTarea() {
                                 <Layers className="h-8 w-8 text-white" />
                             </div>
                             <div>
-                                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-linear-to-r from-indigo-600 to-blue-800 bg-clip-text text-transparent">
-                                    Estados de Tarea
+            <h1 className="
+  text-2xl sm:text-3xl lg:text-4xl font-bold
+  bg-gradient-to-r from-indigo-600 to-blue-800
+  bg-clip-text text-transparent
+  dark:bg-gradient-to-r dark:from-indigo-300 dark:via-blue-200 dark:to-purple-300
+  dark:text-transparent
+">                                        Estados de Tarea
                                 </h1>
                                 <p className="text-slate-500 flex items-center gap-2 text-sm">
-                                    <CheckCircle2 className="h-4 w-4" />
                                     Flujo y control del ciclo de vida
                                 </p>
                             </div>
