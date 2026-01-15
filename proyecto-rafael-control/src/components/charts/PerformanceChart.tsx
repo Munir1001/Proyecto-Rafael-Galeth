@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { useTheme } from 'next-themes';
 import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis,
@@ -8,7 +8,7 @@ import {
 } from 'recharts';
 import { Card } from 'flowbite-react';
 import {
-  TrendingUp, TrendingDown, BarChart3, LineChart as LineChartIcon,
+  TrendingUp, BarChart3, LineChart as LineChartIcon,
   PieChart as PieChartIcon, Target, Activity, Zap
 } from 'lucide-react';
 
