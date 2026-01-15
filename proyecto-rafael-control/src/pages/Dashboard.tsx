@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Card, Spinner, Badge} from 'flowbite-react';
+import { Card, Spinner, Badge } from 'flowbite-react';
 import {
   Users, Briefcase, AlertTriangle, TrendingUp, CheckCircle,
   Clock, FileText, Calendar, BarChart2, Target, Award,
@@ -151,10 +151,10 @@ const StatCard = ({ title, value, icon: Icon, color, subtext, trend, onClick }: 
       ${onClick ? 'hover:bg-slate-50 dark:hover:bg-slate-750' : ''}
     `}
   >
-        <div className="flex justify-between items-start">
+    <div className="flex justify-between items-start">
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-2 flex-wrap">
-          <p className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm font-medium uppercase tracking-wider truncate">{title}</p>
+          <p className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm font-medium tracking-wider">{title}</p>
           {trend && (
             <span className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-medium flex-shrink-0 ${trend.isPositive ? 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300' : 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300'}`}>
               {trend.isPositive ? <ArrowUp size={10} /> : <ArrowDown size={10} />}
@@ -585,102 +585,116 @@ const AdminView = () => {
                 shadow-sm border border-slate-200 dark:border-slate-700">
 
         {/* TÍTULO */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-4">
           <div className="p-3 sm:p-4 bg-linear-to-br from-indigo-400 to-blue-800
                     rounded-2xl shadow-lg shadow-indigo-500/30 shrink-0">
             <Layout className="h-6 w-6 sm:h-8 sm:w-8 text-white" />
           </div>
 
           <div>
-            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold
-                     bg-linear-to-r from-indigo-600 to-blue-800
-                     bg-clip-text text-transparent">
-              Panel de Control Administrativo
+            <h2 className="
+  text-2xl sm:text-3xl lg:text-4xl font-bold
+  bg-gradient-to-r from-indigo-600 to-blue-800
+  bg-clip-text text-transparent
+  dark:bg-gradient-to-r dark:from-indigo-300 dark:via-blue-200 dark:to-purple-300
+  dark:text-transparent
+">
+              Panel Administrativo
             </h2>
             <p className="text-slate-500 text-sm flex items-center gap-2">
-              <Layout size={14} />
               Visión completa del sistema
             </p>
           </div>
         </div>
 
         {/* FILTROS */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 w-full lg:w-auto">
-
-          <div className="flex items-center gap-2
-                    bg-slate-50 dark:bg-slate-700
-                    rounded-xl px-4 py-2
-                    border border-slate-200 dark:border-slate-600
-                    shadow-sm">
-            <Calendar size={16} className="text-slate-400" />
-
+        <div className="
+  flex flex-col sm:flex-row 
+  items-start sm:items-center 
+  gap-3 sm:gap-2
+  bg-slate-50 dark:bg-slate-700
+  rounded-xl px-4 py-3 sm:py-2
+  border border-slate-200 dark:border-slate-600
+  shadow-sm w-full sm:w-auto
+">
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <Calendar size={16} className="text-slate-400 shrink-0" />
             <input
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              className="border-none bg-transparent focus:ring-0 text-sm w-32 text-slate-600 dark:text-slate-200"
+              className="
+        border-none bg-transparent focus:ring-0 
+        text-sm w-full sm:w-32 
+        text-slate-600 dark:text-slate-200
+      "
             />
+          </div>
 
-            <span className="text-slate-400">—</span>
+          <span className="text-slate-400 hidden sm:inline">—</span>
 
+          <div className="flex items-center gap-2 w-full sm:w-auto">
             <input
               type="date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
-              className="border-none bg-transparent focus:ring-0 text-sm w-32 text-slate-600 dark:text-slate-200"
+              className="
+        border-none bg-transparent focus:ring-0 
+        text-sm w-full sm:w-32 
+        text-slate-600 dark:text-slate-200
+      "
             />
           </div>
-
         </div>
       </div>
 
 
       {/* KPIs Principales */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
-      <StatCard
-    title="Total Tareas"
-    value={analytics.total}
-    icon={FileText}
-    subtext={
-      analytics.total === 1
-        ? "1 tarea en total"
-        : `${analytics.total} tareas en total`
-    }
-  />
+        <StatCard
+          title="Total Tareas"
+          value={analytics.total}
+          icon={FileText}
+          subtext={
+            analytics.total === 1
+              ? "1 tarea en total"
+              : `${analytics.total} tareas en total`
+          }
+        />
 
-  <StatCard
-    title="Eficiencia"
-    value={`${analytics.eficiencia}%`}
-    icon={TrendingUp}
-    subtext={
-      analytics.completadas === 1
-        ? "1 tarea completada"
-        : `${analytics.completadas} tareas completadas`
-    }
-  />
+        <StatCard
+          title="Eficiencia"
+          value={`${analytics.eficiencia}%`}
+          icon={TrendingUp}
+          subtext={
+            analytics.completadas === 1
+              ? "1 tarea completada"
+              : `${analytics.completadas} tareas completadas`
+          }
+        />
 
-  <StatCard
-    title="Puntualidad"
-    value={`${analytics.tasaPuntualidad}%`}
-    icon={Clock}
-    subtext={
-      analytics.completadasATiempo === 1
-        ? "1 completada a tiempo"
-        : `${analytics.completadasATiempo} completadas a tiempo`
-    }
-  />
+        <StatCard
+          title="Puntualidad"
+          value={`${analytics.tasaPuntualidad}%`}
+          icon={Clock}
+          subtext={
+            analytics.completadasATiempo === 1
+              ? "1 completada a tiempo"
+              : `${analytics.completadasATiempo} completadas a tiempo`
+          }
+        />
 
-  <StatCard
-    title="Tareas Vencidas"
-    value={analytics.vencidas}
-    icon={AlertTriangle}
-    subtext={
-      analytics.vencidas === 1
-        ? "1 tarea vencida – requiere atención"
-        : `${analytics.vencidas} tareas vencidas – requieren atención`
-    }
-  />
-</div>
+        <StatCard
+          title="Tareas Vencidas"
+          value={analytics.vencidas}
+          icon={AlertTriangle}
+          subtext={
+            analytics.vencidas === 1
+              ? "1 tarea vencida – requiere atención"
+              : `${analytics.vencidas} tareas vencidas – requieren atención`
+          }
+        />
+      </div>
 
       {/* KPIs Secundarios */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
@@ -837,7 +851,7 @@ const AdminView = () => {
             xAxisKey="name"
             yAxisKey="value"
             subtitle=""
-            tooltipFormatter={(value, name) => [ `${value} tareas`, "Cantidad" ]}
+            tooltipFormatter={(value, name) => [`${value} tareas`, "Cantidad"]}
           />
         </Card>
       </div>

@@ -319,7 +319,7 @@ export default function Layout() {
                         </button>
                         <div>
                             <h2 className="text-xl font-bold text-slate-800 dark:text-white capitalize">
-                                {location.pathname === '/' ? 'Dashboard General' : location.pathname.replace('/', '').replace('-', ' ')}
+                                {location.pathname === '/' ? 'Panel de control general' : location.pathname.replace('/', '').replace('-', ' ')}
                             </h2>
                             <p className="text-xs text-slate-500 hidden sm:block">
                                 Bienvenido, {profile?.nombre_completo?.split(' ')[0] || 'Usuario'}

@@ -291,7 +291,7 @@ export default function Perfil() {
                                 <div className="relative mt-8 flex flex-col items-center">
                                     {/* Avatar Wrapper */}
                                     <div className="relative">
-                                        <div className="h-32 w-32 rounded-full border-4 border-white dark:border-slate-800 shadow-xl bg-white flex items-center justify-center overflow-hidden">
+                                        <div className="h-32 w-32 rounded-full border-4 border-white dark:border-slate-800 shadow-xl bg-white flex items-center justify-center overflow-hidden selectable-none">
                                             {profile.avatar_url ? (
                                                 <img src={profile.avatar_url} alt="Profile" className="h-full w-full object-cover" />
                                             ) : (

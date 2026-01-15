@@ -1,3 +1,6 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&display=swap');
+
+
 @import "tailwindcss";
 @custom-variant dark (&:where(.dark, .dark *));
 @tailwind utilities;
@@ -435,4 +438,114 @@ select:hover:not(:disabled) {
     min-width: 44px;
     padding: 0.75rem 1rem;
   }
+}
+
+* {
+  font-family: "Plus Jakarta Sans", sans-serif;
+}
+
+*:focus-visible {
+  outline: none;
+}
+
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+button:focus-visible,
+a:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.3);
+}
+
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  box-shadow: 0 0 0 2px white, 0 0 0 4px rgb(99 102 241 / 0.4);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #94a3b8 #f1f5f9;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #94a3b8;
+  border-radius: 10px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}
+
+::-webkit-scrollbar-thumb:active {
+  background: #475569;
+}
+
+.dark * {
+  scrollbar-color: #64748b #1e293b;
+}
+
+.dark ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #64748b;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+.dark ::-webkit-scrollbar-thumb:active {
+  background: #cbd5e1;
+}
+
+.recharts-wrapper svg *,
+.apexcharts-canvas svg *,
+.chartjs-render-monitor *,
+svg g:focus,
+svg path:focus,
+svg rect:focus,
+svg circle:focus,
+svg text:focus,
+svg {
+  outline: none !important;
+}
+
+.recharts-wrapper svg *:focus-visible,
+.apexcharts-canvas svg *:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.4);
+}
+
+.dark .recharts-wrapper svg *:focus-visible,
+.dark .apexcharts-canvas svg *:focus-visible {
+  box-shadow: 0 0 0 2px rgba(165, 180, 252, 0.5);
+}
+
+::selection {
+  background: #e2e8f0;
+  color: #334155;
+}
+
+.dark ::selection {
+  background: #475569;
+  color: #e2e8f0;
+}
+
+[class^="recharts"], aside, header, .selectable-none, [data-testid="flowbite-card"] {
+  user-select: none!important;
 }
