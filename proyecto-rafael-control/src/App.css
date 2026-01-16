@@ -45,3 +45,14 @@
 }
 
 
+/* En tu archivo de estilos globales (index.css) */
+@media (max-width: 767px) {
+  .mobile-panel-fix {
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    height: 100vh !important;
+    bottom: auto !important;
+    transform: none !important;
+  }
+}

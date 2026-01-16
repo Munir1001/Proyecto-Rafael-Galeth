@@ -3,6 +3,9 @@ import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import ThemeToggle from "../components/ThemeToggle";
 import { useTheme } from "next-themes";
+import NotificationPanel from '../components/NotificationPanel';
+import type { Notification } from '../types/notification';   // ¡importante!
+
 import {
     LayoutDashboard,
     Briefcase,
@@ -26,6 +29,7 @@ const ROLES = {
     MANAGER: 'Manager',
     USUARIO: 'Usuario',
 }
+
 
 // 2. Agregamos 'allowedRoles' a cada ítem
 const MENU_ITEMS_CONFIG = [
@@ -92,6 +96,55 @@ export default function Layout() {
     const [isSidebarOpen, setIsSidebarOpen] = useState(true)
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
     const location = useLocation()
+
+    const [isNotificationOpen, setIsNotificationOpen] = useState(false);
+
+
+// Dentro del componente Layout.tsx (o donde manejes el estado)
+
+const [notifications, setNotifications] = useState<Notification[]>([
+  {
+    id: "notif-1",
+    title: "Nueva tarea asignada",
+    message: "Se te ha asignado la tarea 'Revisión de presupuesto Q1 2026'",
+    type: "info",
+    read: false,
+    created_at: new Date(Date.now() - 1000 * 60 * 45).toISOString(), // hace 45 minutos
+  },
+  {
+    id: "notif-2",
+    title: "Proyecto completado",
+    message: "El proyecto 'Migración CRM' ha sido marcado como finalizado por el equipo",
+    type: "success",
+    read: true,
+    created_at: new Date(Date.now() - 1000 * 60 * 60 * 3).toISOString(), // hace 3 horas
+  },
+  {
+    id: "notif-3",
+    title: "Recordatorio urgente",
+    message: "La reunión con el cliente vence en 30 minutos",
+    type: "warning",
+    read: false,
+    created_at: new Date(Date.now() - 1000 * 60 * 15).toISOString(), // hace 15 minutos
+  },
+  {
+    id: "notif-4",
+    title: "Error en integración",
+    message: "Fallo al sincronizar con el sistema contable externo",
+    type: "error",
+    read: false,
+    created_at: new Date(Date.now() - 1000 * 60 * 5).toISOString(), // hace 5 minutos
+  },
+  {
+    id: "notif-5",
+    title: "Actualización del sistema",
+    message: "Se ha desplegado la versión 2.3.1 con mejoras en reportes",
+    type: "info",
+    read: true,
+    created_at: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(), // hace 1 día
+  },
+]);
+const unreadCount = notifications.filter(n => !n.read).length;
 
     // 3. Filtramos los items basándonos en el rol del usuario
     const filteredMenuItems = useMemo(() => {
@@ -331,10 +384,25 @@ export default function Layout() {
                         
                         {/* Toggle Light / Dark */}
                         <ThemeToggle />
-                        <button className="p-2.5 text-slate-500 hover:bg-gray-100 rounded-full relative">
-                            <Bell size={20} />
-                            <span className="absolute top-2 right-2.5 w-2 h-2 bg-red-500 rounded-full border border-white"></span>
-                        </button>
+<div className="relative">
+  <button 
+    onClick={() => setIsNotificationOpen(!isNotificationOpen)}
+    className="p-2.5 text-slate-500 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-full relative transition"
+  >
+    <Bell size={20} />
+    {unreadCount > 0 && (
+      <span className="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-white dark:border-slate-900">
+        {unreadCount > 9 ? '9+' : unreadCount}
+      </span>
+    )}
+  </button>
+
+  <NotificationPanel 
+    isOpen={isNotificationOpen}
+    onClose={() => setIsNotificationOpen(false)}
+    notifications={notifications} // ← pásale el array real cuando lo tengas
+  />
+</div>
                     </div>
                 </header>
 
