@@ -65,7 +65,11 @@ export const SeaweedUploader: React.FC<SeaweedUploaderProps> = ({
 
             request.onload = function () {
               if (request.status >= 200 && request.status < 300) {
-                const publicUrl = `http://localhost:8888/${folderName}/${uniqueName}`;
+                const endpoint = import.meta.env.VITE_SEAWEDFS_ENDPOINT || 'localhost'
+                const port = import.meta.env.VITE_SEAWEDFS_PORT || '8888'
+                const useSSL = (import.meta.env.VITE_SEAWEDFS_USE_SSL || 'false').toLowerCase() === 'true'
+                const publicUrl = `${useSSL ? 'https' : 'http'}://${endpoint}:${port}/${folderName}/${uniqueName}`;
+                
                 const attachmentInfo: AttachmentInfo = {
                   path: uniqueName,
                   name: file.name,

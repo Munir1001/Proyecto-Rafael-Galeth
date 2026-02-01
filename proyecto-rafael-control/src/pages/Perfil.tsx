@@ -138,7 +138,10 @@ export default function Perfil() {
             }
 
             // 2. Construir URL pública
-            const publicUrl = `http://localhost:8888/avatars/${fileName}`;
+            const endpoint = import.meta.env.VITE_SEAWEDFS_ENDPOINT || 'localhost'
+            const port = import.meta.env.VITE_SEAWEDFS_PORT || '8888'
+            const useSSL = (import.meta.env.VITE_SEAWEDFS_USE_SSL || 'false').toLowerCase() === 'true'
+            const publicUrl = `${useSSL ? 'https' : 'http'}://${endpoint}:${port}/avatars/${fileName}`;
             
             // TRUCO DE CACHÉ:
             // Agregamos un timestamp (?t=...) al final de la URL.
