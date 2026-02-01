@@ -1,172 +1,119 @@
-// src/components/NotificationPanel.tsx
-import { useEffect, useRef } from 'react';
-import { Bell, X, CheckCircle, AlertTriangle, Info, Clock } from 'lucide-react';
+import { X, Check, CheckCheck } from 'lucide-react';
 import type { Notification } from '../types/notification';
+
 
 interface NotificationPanelProps {
   isOpen: boolean;
   onClose: () => void;
   notifications: Notification[];
+  onMarkAsRead: (id: string) => void; // <--- Agregamos esto
+  onNotificationClick?: (tareaId: string) => void; // <--- Nuevo prop para clic en notificación
+  onMarkAllAsRead?: () => void; // <--- Nuevo prop para marcar todas como leídas
 }
+
+
 export default function NotificationPanel({
   isOpen,
   onClose,
   notifications,
+  onMarkAsRead, // <--- Lo desestructuramos aquí
+  onNotificationClick, // <--- Nuevo prop
+  onMarkAllAsRead // <--- Nuevo prop para marcar todas como leídas
 }: NotificationPanelProps) {
-  const panelRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
-        onClose();
-      }
-    };
-
-    if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-      if (window.innerWidth < 768) {
-        document.body.style.overflow = 'hidden';
-      }
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-      document.body.style.overflow = '';
-    };
-  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
-  const unreadCount = notifications.filter(n => !n.read).length;
-
   return (
-    <>
-      {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden"
-        onClick={onClose}
-      />
+    <div className="fixed right-4 top-20 w-80 sm:w-96 bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-gray-100 dark:border-slate-800 z-[9999] overflow-hidden transform transition-all animate-slide-in-right">
 
-      {/* Panel */}
-      <div
-        ref={panelRef}
-        className={`
-          fixed z-50 
-          bg-white dark:bg-slate-900 
-          border border-slate-200 dark:border-slate-700 
-          shadow-2xl overflow-hidden
-          
-          /* === MÓVIL: Bottom Sheet === */
-          inset-x-0 bottom-0
-          h-[85vh] max-h-[85vh]
-          rounded-t-2xl rounded-b-none
-          
-          /* === DESKTOP: Panel flotante === */
-          md:absolute
-          md:top-full md:right-0 md:bottom-auto md:left-auto
-          md:mt-2
-          md:w-96 md:h-auto md:max-h-[70vh]
-          md:rounded-xl md:rounded-b-xl
-          
-          /* Animación */
-          transition-all duration-300 ease-in-out
-          ${isOpen ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}
-        `}
-      >
-        {/* Header */}
-        <div className="bg-gradient-to-r from-indigo-600 to-blue-700 px-5 py-4 text-white flex items-center justify-between sticky top-0 z-10">
-          <div className="flex items-center gap-3">
-            <Bell size={20} />
-            <div>
-              <h3 className="font-semibold text-lg">Notificaciones</h3>
-              <p className="text-xs opacity-90 mt-0.5">
-                {unreadCount > 0 
-                  ? `Tienes ${unreadCount} sin leer` 
-                  : 'Estás al día'}
-              </p>
-            </div>
-          </div>
-          <button 
-            onClick={onClose}
-            className="p-2 hover:bg-white/20 rounded-full transition"
-          >
-            <X size={22} />
-          </button>
+      {/* Cabecera */}
+      <div className="p-4 border-b border-gray-100 dark:border-slate-800 flex justify-between items-center bg-gray-50/50 dark:bg-slate-900/50">
+        <div className="flex items-center gap-3">
+          <h3 className="font-semibold text-slate-800 dark:text-white">Notificaciones</h3>
+          {notifications.filter(n => !n.leida).length > 0 && (
+
+            <button
+              onClick={onMarkAllAsRead}
+              title="Marcar todas como leídas"
+              aria-label="Marcar todas como leídas"
+              className="p-2 rounded-md text-blue-600 hover:text-blue-700 hover:bg-blue-50
+             dark:text-blue-400 dark:hover:text-blue-300 dark:hover:bg-blue-900/40
+             transition-colors"
+            >
+              <CheckCheck className="w-4 h-4" />
+            </button>
+          )}
         </div>
+        <button onClick={onClose} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+          <X size={18} />
+        </button>
+      </div>
 
-        {/* Contenido - Se ajusta automáticamente */}
-        <div className="h-full overflow-y-auto scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-600">
-          {notifications.length === 0 ? (
-            <div className="py-16 text-center text-slate-500 dark:text-slate-400">
-              <Bell size={64} className="mx-auto mb-6 opacity-30" strokeWidth={1.2} />
-              <p className="text-xl font-medium">Sin notificaciones</p>
-              <p className="text-sm mt-2">Aquí aparecerán cuando lleguen</p>
-            </div>
-          ) : (
-            <div className="divide-y divide-slate-100 dark:divide-slate-800 pb-20 md:pb-4">
-              {notifications.map((notif) => (
-                <div
-                  key={notif.id}
-                  className={`p-4 flex gap-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer
-                    ${!notif.read ? 'bg-indigo-50/40 dark:bg-indigo-950/30' : ''}
-                  `}
-                >
-                  {/* Icono según tipo */}
-                  <div className="shrink-0 mt-1">
-                    {notif.type === 'success' && <CheckCircle className="text-green-500" size={20} />}
-                    {notif.type === 'warning' && <AlertTriangle className="text-amber-500" size={20} />}
-                    {notif.type === 'error' && <AlertTriangle className="text-red-500" size={20} />}
-                    {notif.type === 'info' && <Info className="text-blue-500" size={20} />}
-                  </div>
+      {/* Lista */}
+      <div className="max-h-[400px] overflow-y-auto"> {/* Ajusté max-h-100 a max-h-[400px] para Tailwind estándar */}
+        {notifications.length === 0 ? (
+          <div className="p-8 text-center text-slate-500 text-sm">
+            No tienes notificaciones nuevas
+          </div>
+        ) : (
+          notifications.map((notif) => (
+            <div
+              key={notif.id}
+              className={`p-4 border-b border-gray-50 dark:border-slate-800 hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors flex gap-3 ${!notif.leida ? 'bg-blue-50/30 dark:bg-blue-900/10' : ''} ${notif.tarea_id ? 'cursor-pointer' : ''}`}
+              onClick={() => {
+                if (notif.tarea_id && onNotificationClick) {
+                  onNotificationClick(notif.tarea_id);
+                  onMarkAsRead(notif.id);
+                  onClose();
+                }
+              }}
+            >
+              <div className="mt-1">
+                {!notif.leida ? (
+                  <div className="w-2 h-2 rounded-full bg-blue-500" />
+                ) : (
+                  <div className="w-2 h-2" />
+                )}
+              </div>
 
-                  <div className="flex-1">
-                    <p className="font-medium text-slate-900 dark:text-white">
-                      {notif.title}
-                    </p>
-                    <p className="text-sm text-slate-600 dark:text-slate-300 mt-0.5">
-                      {notif.message}
-                    </p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 flex items-center gap-1.5">
-                      <Clock size={12} />
-                      {new Date(notif.created_at).toLocaleTimeString('es-EC', { 
-                        hour: '2-digit', minute: '2-digit' 
-                      })}
-                    </p>
-                  </div>
-
-                  {!notif.read && (
-                    <div className="w-2.5 h-2.5 bg-indigo-500 rounded-full mt-2" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-1">
+                  {notif.titulo}
+                </p>
+                <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">
+                  {notif.mensaje}
+                </p>
+                <div className="flex items-center justify-between mt-2">
+                  <p className="text-[10px] text-slate-400">
+                    {new Date(notif.created_at).toLocaleString('es-ES', {
+                      day: '2-digit', month: '2-digit', year: 'numeric',
+                      hour: '2-digit', minute: '2-digit'
+                    })}
+                  </p>
+                  {notif.tarea_id && (
+                    <span className="text-xs text-blue-500 bg-blue-50 dark:bg-blue-900/30 px-2 py-1 rounded">
+                      Tarea #{notif.tarea_id.slice(-6)}
+                    </span>
                   )}
                 </div>
-              ))}
+              </div>
+
+              {!notif.leida && !notif.tarea_id && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onMarkAsRead(notif.id);
+                  }}
+                  className="self-start text-blue-500 hover:text-blue-700 p-1 rounded hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
+                  title="Marcar como leída"
+                >
+                  <Check size={14} />
+                </button>
+              )}
             </div>
-          )}
-        </div>
-
-        {/* Footer - Solo visible en móvil */}
-        <div className="md:hidden fixed bottom-0 left-0 right-0 p-4 border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 flex justify-between items-center">
-          <button className="text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 font-medium transition">
-            Ver todas
-          </button>
-          {unreadCount > 0 && (
-            <button className="text-sm text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition">
-              Marcar todo como leído
-            </button>
-          )}
-        </div>
-
-        {/* Footer para desktop */}
-        <div className="hidden md:block border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950/80 p-4 flex justify-between items-center">
-          <button className="text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 font-medium transition">
-            Ver todas
-          </button>
-          {unreadCount > 0 && (
-            <button className="text-sm text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition">
-              Marcar todo como leído
-            </button>
-          )}
-        </div>
+          ))
+        )}
       </div>
-    </>
+    </div>
   );
 }

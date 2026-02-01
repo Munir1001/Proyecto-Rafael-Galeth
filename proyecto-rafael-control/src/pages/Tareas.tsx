@@ -4,11 +4,13 @@ import 'filepond/dist/filepond.min.css';
 import 'filepond-plugin-image-preview/dist/filepond-plugin-image-preview.css';
 import FilePondPluginImagePreview from 'filepond-plugin-image-preview';
 import FilePondPluginFileValidateType from 'filepond-plugin-file-validate-type';
+import { SeaweedUploader } from '../components/SeaweedUploader';
 
 registerPlugin(FilePondPluginImagePreview, FilePondPluginFileValidateType);
 import { createPortal } from 'react-dom';
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../context/AuthContext';
+import { useSearchParams } from 'react-router-dom';
 import {
     Plus, Search, Paperclip, MessageSquare, MoreHorizontal,
     Layout, List, BarChart3, Filter, ChevronDown, ChevronUp,
@@ -498,6 +500,8 @@ const useTaskTooltip = () => {
 
 export default function TareasAvanzadas() {
     const { profile } = useAuth();
+    const [searchParams] = useSearchParams();
+    const taskIdFromUrl = searchParams.get('id');
     const [viewMode, setViewMode] = useState<'kanban' | 'list' | 'timeline'>('kanban');
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -509,6 +513,7 @@ export default function TareasAvanzadas() {
     const [usuariosParaAsignar, setUsuariosParaAsignar] = useState<UsuarioSelect[]>([]);
     const [departamentos, setDepartamentos] = useState<Departamento[]>([]);
     const [notificaciones, setNotificaciones] = useState<Notificacion[]>([]);
+    const [pendingTaskId, setPendingTaskId] = useState<string | null>(null);
     const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
     const [editingCommentText, setEditingCommentText] = useState('');
 
@@ -606,6 +611,43 @@ export default function TareasAvanzadas() {
     const getInitials = (name: string) => {
         return name ? name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2) : '??';
     };
+
+    // Efecto para manejar eventos de apertura de tarea desde notificaciones
+    useEffect(() => {
+        const handleOpenTaskFromNotification = (event: CustomEvent) => {
+            const { tareaId } = event.detail;
+            setPendingTaskId(tareaId);
+        };
+
+        window.addEventListener('openTaskDetailFromNotification', handleOpenTaskFromNotification as EventListener);
+
+        return () => {
+            window.removeEventListener('openTaskDetailFromNotification', handleOpenTaskFromNotification as EventListener);
+        };
+    }, []);
+
+    // Efecto para abrir el modal cuando hay una tarea pendiente
+    useEffect(() => {
+        if (pendingTaskId && tareas.length > 0) {
+            const task = tareas.find((t: Tarea) => t.id === pendingTaskId);
+            if (task) {
+                openTaskDetail(task);
+                setPendingTaskId(null);
+            }
+        }
+    }, [pendingTaskId, tareas]);
+
+    // Efecto para abrir modal si hay ID en la URL
+    useEffect(() => {
+        if (taskIdFromUrl && tareas.length > 0) {
+            const task = tareas.find((t: Tarea) => t.id === taskIdFromUrl);
+            if (task) {
+                openTaskDetail(task);
+                // Limpiar la URL para que no abra de nuevo al refresh
+                window.history.replaceState({}, '', '/tareas');
+            }
+        }
+    }, [taskIdFromUrl, tareas]);
 
     useEffect(() => {
         if (profile) fetchData();
@@ -2428,30 +2470,19 @@ export default function TareasAvanzadas() {
 
                             {canEditTaskDetails(editingTask) && (
                                 <div className="mt-4">
-                                    <FilePondComponent
-                                        files={files}
-                                        onupdatefiles={setFiles}
-                                        allowMultiple={true}
+                                    <SeaweedUploader
+                                        folderName="tareas_adjuntos"
                                         maxFiles={5}
-                                        name="files"
-                                        credits={false}
-                                        labelIdle={`<div class="flex flex-col items-center gap-3 text-slate-400 group-hover:text-indigo-600 transition-colors cursor-pointer"><div class="p-4 bg-slate-100 dark:bg-slate-800 rounded-full group-hover:bg-indigo-100 dark:group-hover:bg-indigo-900/30 transition-colors"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-indigo-500 dark:text-indigo-400"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg></div><div><span class="text-base font-bold block text-slate-600 dark:text-slate-300">Subir archivos adjuntos</span><span class="text-sm text-slate-400 dark:text-slate-500 block mt-1">Soporta: PDF, DOC, XLS, JPG, PNG (máx. 10MB)</span></div></div>`}
-                                        server={{
-                                            process: async (fieldName: string, file: File, metadata: any, load: any, error: any, progress: any, abort: any) => {
-                                                const fileExt = file.name.split('.').pop();
-                                                const fileName = `${Math.random()}.${fileExt}`;
-                                                const filePath = `tareas_adjuntos/${fileName}`;
-                                                const { data, error: uploadError } = await supabase.storage.from('adjuntos').upload(filePath, file);
-                                                if (uploadError) { error('Error al subir'); return; }
-                                                setTempAttachments(prev => [...prev, { path: data.path, name: file.name, size: file.size, type: file.type }]);
-                                                load(data.path);
-                                            },
-                                            revert: async (uniqueFileId: string, load: any, error: any) => {
-                                                const { error: deleteError } = await supabase.storage.from('adjuntos').remove([uniqueFileId]);
-                                                if (deleteError) { error('Error al eliminar'); return; }
-                                                setTempAttachments(prev => prev.filter(f => f.path !== uniqueFileId));
-                                                load();
-                                            }
+                                        onUploadComplete={(attachment) => {
+                                            setTempAttachments(prev => [...prev, { 
+                                                path: attachment.path, 
+                                                name: attachment.name, 
+                                                size: attachment.size, 
+                                                type: attachment.type 
+                                            }]);
+                                        }}
+                                        onFileRemoved={(path) => {
+                                            setTempAttachments(prev => prev.filter(f => f.path !== path));
                                         }}
                                     />
                                 </div>
@@ -2635,11 +2666,11 @@ export default function TareasAvanzadas() {
                                                                         {(selectedTaskForDetail.adjuntos || [])
                                                                             .filter(adj => adj.comentario_id === comentario.id)
                                                                             .map(adj => {
-                                                                                const { data } = supabase.storage.from('adjuntos').getPublicUrl(adj.url_archivo);
+                                                                                const publicUrl = `http://localhost:8888/tareas_adjuntos/${adj.url_archivo}`;
                                                                                 return (
                                                                                     <a
                                                                                         key={adj.id}
-                                                                                        href={data.publicUrl}
+                                                                                        href={publicUrl}
                                                                                         target="_blank"
                                                                                         rel="noopener noreferrer"
                                                                                         className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 dark:bg-slate-700 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 border border-slate-200 dark:border-slate-600 hover:border-indigo-200 dark:hover:border-indigo-700 rounded-lg text-xs transition-all group/file"
@@ -2689,46 +2720,21 @@ export default function TareasAvanzadas() {
                                                             ></textarea>
 
                                                             <div className="mt-3">
-                                                                <FilePondComponent
-                                                                    files={commentFiles}
-                                                                    onupdatefiles={setCommentFiles}
-                                                                    allowMultiple={true}
+                                                                <SeaweedUploader
+                                                                    folderName="comentarios_adjuntos"
                                                                     maxFiles={3}
-                                                                    name="files"
-                                                                    credits={false}
-                                                                    labelIdle='<span class="text-xs text-slate-400 dark:text-slate-500 cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors flex items-center justify-center gap-2"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg> Adjuntar archivos</span>'
-                                                                    server={{
-                                                                        process: async (fieldName: string, file: File, metadata: any, load: any, error: any, progress: any, abort: any) => {
-                                                                            const fileExt = file.name.split('.').pop();
-                                                                            const fileName = `${Math.random()}.${fileExt}`;
-                                                                            const filePath = `comentarios_adjuntos/${fileName}`;
-
-                                                                            const { data, error: uploadError } = await supabase.storage
-                                                                                .from('adjuntos')
-                                                                                .upload(filePath, file);
-
-                                                                            if (uploadError) { error('Error'); return; }
-
-                                                                            setTempCommentAttachments(prev => [...prev, {
-                                                                                path: data.path,
-                                                                                name: file.name,
-                                                                                size: file.size,
-                                                                                type: file.type
-                                                                            }]);
-                                                                            load(data.path);
-                                                                        },
-                                                                        revert: async (uniqueFileId: string, load: any, error: any) => {
-                                                                            const { error: deleteError } = await supabase.storage
-                                                                                .from('adjuntos')
-                                                                                .remove([uniqueFileId]);
-
-                                                                            if (deleteError) { error('Error'); return; }
-
-                                                                            setTempCommentAttachments(prev => prev.filter(f => f.path !== uniqueFileId));
-                                                                            load();
-                                                                        }
+                                                                    existingFiles={commentFiles}
+                                                                    onUploadComplete={(attachment) => {
+                                                                        setTempCommentAttachments(prev => [...prev, {
+                                                                            path: attachment.path,
+                                                                            name: attachment.name,
+                                                                            size: attachment.size,
+                                                                            type: attachment.type
+                                                                        }]);
                                                                     }}
-                                                                    className="filepond-compact"
+                                                                    onFileRemoved={(path) => {
+                                                                        setTempCommentAttachments(prev => prev.filter(f => f.path !== path));
+                                                                    }}
                                                                 />
                                                             </div>
 
@@ -2890,12 +2896,12 @@ export default function TareasAvanzadas() {
                                         {selectedTaskForDetail.adjuntos && selectedTaskForDetail.adjuntos.length > 0 ? (
                                             <div className="space-y-2">
                                                 {selectedTaskForDetail.adjuntos.map((adjunto) => {
-                                                    const { data } = supabase.storage.from('adjuntos').getPublicUrl(adjunto.url_archivo);
+                                                    const publicUrl = `http://localhost:8888/tareas_adjuntos/${adjunto.url_archivo}`;
 
                                                     return (
                                                         <a
                                                             key={adjunto.id}
-                                                            href={data.publicUrl}
+                                                            href={publicUrl}
                                                             target="_blank"
                                                             rel="noopener noreferrer"
                                                             className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-700/50 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 border border-slate-200 dark:border-slate-600 rounded-xl transition-all group"

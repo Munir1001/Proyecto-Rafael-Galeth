@@ -7,7 +7,6 @@ import {
     Trash2,
     ShieldCheck,
     Building2,
-    Users,
     X,
     AlertTriangle,
     CheckCircle,
@@ -251,9 +250,9 @@ export default function Departamentos() {
                             <div>
             <h1 className="
   text-2xl sm:text-3xl lg:text-4xl font-bold
-  bg-gradient-to-r from-indigo-600 to-blue-800
+  bg-linear-to-r from-indigo-600 to-blue-800
   bg-clip-text text-transparent
-  dark:bg-gradient-to-r dark:from-indigo-300 dark:via-blue-200 dark:to-purple-300
+  dark:bg-linear-to-r dark:from-indigo-300 dark:via-blue-200 dark:to-purple-300
   dark:text-transparent
 ">                                        Departamentos
                                 </h1>

@@ -71,6 +71,10 @@ export default function Usuarios() {
     // 1. NUEVO ESTADO PARA EL FILTRO
     const [selectedDept, setSelectedDept] = useState('');
 
+    // Estados para paginación
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(10);
+
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingUser, setEditingUser] = useState<Usuario | null>(null);
     const [notification, setNotification] = useState<Notification>({ show: false, message: "", type: 'success' });
@@ -289,6 +293,17 @@ export default function Usuarios() {
         return matchesSearch && matchesDept;
     });
 
+    // Paginación
+    const indexOfLastItem = currentPage * itemsPerPage;
+    const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+    const currentUsers = filteredUsers.slice(indexOfFirstItem, indexOfLastItem);
+    const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
+
+    // Resetear página actual cuando cambia el filtro
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, selectedDept]);
+
     if (loading) {
         return (
             <div className="flex flex-col items-center justify-center min-h-screen bg-linear-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-900 dark:via-slate-900 dark:to-indigo-950">
@@ -484,7 +499,7 @@ export default function Usuarios() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-                                {filteredUsers.map((user) => (
+                                {currentUsers.map((user) => (
                                     <tr key={user.id} className="hover:bg-linear-to-r hover:from-indigo-50/50 hover:to-blue-50/50 dark:hover:from-slate-700/50 dark:hover:to-indigo-900/30 transition-all duration-200">
                                         <td className="px-6 py-5">
                                             <div className="flex items-center space-x-4">
@@ -563,7 +578,7 @@ export default function Usuarios() {
 
                     {/* Vista Mobile - Cards */}
                     <div className="lg:hidden divide-y divide-slate-200 dark:divide-slate-700">
-                        {filteredUsers.map((user) => (
+                        {currentUsers.map((user) => (
                             <div key={user.id} className="p-4 hover:bg-indigo-50/50 dark:hover:bg-slate-700/50 transition-all duration-200">
                                 <div className="flex items-start justify-between mb-3">
                                     <div className="flex items-center space-x-3">
@@ -622,6 +637,34 @@ export default function Usuarios() {
                             </div>
                         ))}
                     </div>
+
+                    {/* Paginación */}
+                    {totalPages > 1 && (
+                        <div className="flex items-center justify-between px-6 py-4 border-t border-slate-200 dark:border-slate-700">
+                            <div className="text-sm text-slate-600 dark:text-slate-400">
+                                Mostrando {indexOfFirstItem + 1} - {Math.min(indexOfLastItem, filteredUsers.length)} de {filteredUsers.length} usuarios
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                                    disabled={currentPage === 1}
+                                    className="px-3 py-1 text-sm font-medium text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-md hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    Anterior
+                                </button>
+                                <span className="px-4 py-1 text-sm font-medium text-slate-900 dark:text-white bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-200 dark:border-indigo-700 rounded-md">
+                                    {currentPage} de {totalPages}
+                                </span>
+                                <button
+                                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                                    disabled={currentPage === totalPages}
+                                    className="px-3 py-1 text-sm font-medium text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-md hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    Siguiente
+                                </button>
+                            </div>
+                        </div>
+                    )}
 
                     {filteredUsers.length === 0 && !loading && (
                         <div className="p-12 text-center">

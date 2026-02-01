@@ -6,7 +6,8 @@ import {
   Layout, Activity, Zap, ArrowUp, ArrowDown,
   MessageSquare, Paperclip,
   CheckSquare, PauseCircle,
-  BarChart3, PieChart as PieChartIcon
+  BarChart3, PieChart as PieChartIcon,
+  type LucideIcon
 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../context/AuthContext';
@@ -141,41 +142,94 @@ const formatDate = (dateString: string) => {
 };
 
 // ============= COMPONENTES UI MEJORADOS =============
-const StatCard = ({ title, value, icon: Icon, color, subtext, trend, onClick }: any) => (
-  <div
-    onClick={onClick}
-    className={`
-      group relative bg-white dark:bg-slate-800 rounded-xl p-3 sm:p-4 md:p-5 shadow-sm hover:shadow-md 
-      border border-slate-200 dark:border-slate-700 transition-all duration-300
-      cursor-pointer overflow-hidden
-      ${onClick ? 'hover:bg-slate-50 dark:hover:bg-slate-750' : ''}
-    `}
-  >
-    <div className="flex justify-between items-start">
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 mb-2 flex-wrap">
-          <p className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm font-medium tracking-wider">{title}</p>
-          {trend && (
-            <span className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-medium flex-shrink-0 ${trend.isPositive ? 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300' : 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300'}`}>
-              {trend.isPositive ? <ArrowUp size={10} /> : <ArrowDown size={10} />}
-              {trend.value}%
-            </span>
+interface StatCardProps {
+  title: string;
+  value: string | number;
+  icon: LucideIcon;
+  // Hacemos el color opcional pero con tipos definidos
+  color?: 'blue' | 'emerald' | 'rose' | 'amber' | 'violet' | 'slate';
+  subtext?: string;
+  trend?: {
+    value: number;
+    isPositive: boolean;
+  };
+  onClick?: () => void;
+}
+
+const StatCard = ({
+  title,
+  value,
+  icon: Icon,
+  color = 'slate', // Color por defecto
+  subtext,
+  trend,
+  onClick
+}: StatCardProps) => {
+
+  // Diccionario de colores para el icono (fondo y texto)
+  const colorClasses = {
+    blue: "bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400",
+    emerald: "bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400",
+    rose: "bg-rose-50 text-rose-600 dark:bg-rose-900/20 dark:text-rose-400",
+    amber: "bg-amber-50 text-amber-600 dark:bg-amber-900/20 dark:text-amber-400",
+    violet: "bg-violet-50 text-violet-600 dark:bg-violet-900/20 dark:text-violet-400",
+    slate: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400",
+  };
+
+  return (
+    <div
+      onClick={onClick}
+      className={`
+        group relative bg-white dark:bg-slate-800 rounded-xl p-4 shadow-sm 
+        border border-slate-200 dark:border-slate-700 transition-all duration-300
+        ${onClick ? 'cursor-pointer hover:shadow-md hover:border-blue-200 dark:hover:border-blue-800' : ''}
+        h-full flex flex-col justify-center
+      `}
+    >
+      <div className="flex justify-between items-start gap-4">
+        {/* Contenedor de Texto: Flex-1 y min-w-0 son CLAVE para el ajuste de texto */}
+        <div className="flex-1 min-w-0">
+
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
+            <p className="text-slate-500 dark:text-slate-400 text-sm font-medium tracking-wide">
+              {title}
+            </p>
+
+            {/* Lógica de colores para el Trend (Verde/Rojo) */}
+            {trend && (
+              <span className={`
+                flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold
+                ${trend.isPositive
+                  ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+                  : 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400'}
+              `}>
+                {trend.isPositive ? <ArrowUp size={10} strokeWidth={3} /> : <ArrowDown size={10} strokeWidth={3} />}
+                {trend.value}%
+              </span>
+            )}
+          </div>
+
+          {/* Valor Principal: Sin truncate, con break-words */}
+          <h3 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white tracking-tight break-words leading-none">
+            {value}
+          </h3>
+
+          {/* Subtexto: Sin truncate, permite múltiples líneas */}
+          {subtext && (
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 font-medium break-words whitespace-normal leading-tight">
+              {subtext}
+            </p>
           )}
         </div>
-        <h3 className="text-xl sm:text-2xl md:text-3xl font-bold text-slate-900 dark:text-white tracking-tight truncate">
-          {value}
-        </h3>
-        {subtext && (
-          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1 truncate">{subtext}</p>
-        )}
-      </div>
 
-      <div className="p-2 sm:p-2.5 rounded-lg bg-slate-50 dark:bg-slate-700 flex-shrink-0">
-        <Icon size={16} className="text-slate-600 dark:text-slate-400 sm:w-5 sm:h-5" />
+        {/* Icono con color dinámico */}
+        <div className={`p-3 rounded-xl flex-shrink-0 transition-colors ${colorClasses[color]}`}>
+          <Icon size={20} strokeWidth={2} />
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 // ============= COMPONENTE DE CARGA =============
 const LoadingState = () => (
@@ -705,7 +759,7 @@ const AdminView = () => {
           subtext="En el sistema"
         />
         <StatCard
-          title="Promedio Rendimiento Mensual"
+          title="Rendimiento Mensual"
           value={`${analytics.promedioRendimiento.toFixed(1)}%`}
           icon={BarChart3}
           subtext="Todos los usuarios"
@@ -743,7 +797,7 @@ const AdminView = () => {
       </div>
 
       {/* Gráficos Principales */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-1 gap-4 sm:gap-6">
         {/* Tendencia Semanal */}
         <Card className="shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md transition-shadow duration-300 bg-white dark:bg-slate-800">
           <div className="flex items-center gap-3 mb-4 sm:mb-6">
@@ -1223,7 +1277,7 @@ const ManagerView = () => {
       </div>
 
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-1 gap-4 sm:gap-6">
         {/* Tendencia 30 días */}
         <Card className="shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md transition-shadow duration-300 bg-white dark:bg-slate-800">
           <div className="flex items-center gap-3 mb-4 sm:mb-6">
@@ -1599,8 +1653,8 @@ const UserView = () => {
               }
               // Color semántico: Rojo si < 50%, Amarillo si < 100%, Verde si 100%
               color={
-                analytics.porcentajeCumplimiento < 0.5 ? "red" :
-                  analytics.porcentajeCumplimiento < 1 ? "yellow" : "green"
+                analytics.porcentajeCumplimiento < 0.5 ? "rose" :      // Rojo (Peligro)
+                  analytics.porcentajeCumplimiento < 1 ? "amber" : "emerald" // Amarillo (Alerta) : Verde (Éxito)
               }
             />
           );
@@ -1671,7 +1725,7 @@ const UserView = () => {
       </div>
 
       {/* Gráficos Usuario */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-1 gap-4 sm:gap-6">
         {/* Progreso Semanal */}
         <Card className="shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md transition-shadow duration-300 bg-white dark:bg-slate-800">
           <div className="flex items-center gap-3 mb-4 sm:mb-6">

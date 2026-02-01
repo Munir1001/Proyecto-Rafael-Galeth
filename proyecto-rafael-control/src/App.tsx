@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { TaskModalProvider } from './context/TaskModalContext';
 import { Spinner } from 'flowbite-react';
 import { ThemeProvider } from "next-themes";
 
@@ -127,9 +128,11 @@ export default function App() {
   return (
     <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false} disableTransitionOnChange storageKey="theme">
       <AuthProvider>
-        <BrowserRouter>
-          <AppRoutes />
-        </BrowserRouter>
+        <TaskModalProvider>
+          <BrowserRouter>
+            <AppRoutes />
+          </BrowserRouter>
+        </TaskModalProvider>
       </AuthProvider>
     </ThemeProvider>
   )

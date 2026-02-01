@@ -15,6 +15,13 @@ export default defineConfig({
 
   server: {
     allowedHosts: ['.trycloudflare.com'],
+    proxy: {
+      '/seaweedfs': {
+        target: 'http://localhost:8888',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/seaweedfs/, ''),
+      },
+    },
   },
 })
 

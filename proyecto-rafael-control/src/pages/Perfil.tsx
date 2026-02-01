@@ -123,20 +123,23 @@ export default function Perfil() {
             // USAR SIEMPRE EL ID DEL USUARIO como nombre de archivo
             // Esto sobrescribe la foto anterior y ahorra espacio.
             const fileName = `${profile?.id}.${fileExt}`;
-            const filePath = `${fileName}`;
+            
+            // 1. Subir a SeaweedFS
+            const formData = new FormData();
+            formData.append('file', file, fileName);
+            
+            const response = await fetch('/seaweedfs/avatars/' + fileName, {
+                method: 'POST',
+                body: formData
+            });
 
-            // 1. Subir a Storage (upsert: true para sobrescribir)
-            const { error: uploadError } = await supabase.storage
-                .from('avatars')
-                .upload(filePath, file, { upsert: true });
+            if (!response.ok) {
+                throw new Error("Error al subir la imagen a SeaweedFS");
+            }
 
-            if (uploadError) throw uploadError;
-
-            // 2. Obtener URL Pública
-            const { data: { publicUrl } } = supabase.storage
-                .from('avatars')
-                .getPublicUrl(filePath);
-
+            // 2. Construir URL pública
+            const publicUrl = `http://localhost:8888/avatars/${fileName}`;
+            
             // TRUCO DE CACHÉ:
             // Agregamos un timestamp (?t=...) al final de la URL.
             // Esto no cambia la BD, pero fuerza a React a recargar la imagen nueva.
